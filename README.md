@@ -14,7 +14,7 @@ Z.init()
 
 // Generate an instrument for the given seed:
 let seed = 13
-let instrument = Z.generateRandomInstrument(seed)
+let instrument = Z.getInstrument(seed)
 
 // Play note 0 (Middle C)
 Z.play(0, instrument)
