@@ -211,7 +211,7 @@ let Z = {
       osc.stop(finalStopTime);
     });
   },
-  generateRandomInstrument: (seed) => {
+  getInstrument: (seed) => {
     seed = parseInt(seed);
     let r = Z.m32(seed);
     let oscs = [];
