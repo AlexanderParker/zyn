@@ -1,0 +1,178 @@
+<html>
+  <body>
+    <head>
+      <title>Z Demo</title>
+      <script src="./Z.js"></script>
+    </head>
+    <script>
+      // Callbacks to handle UI
+      let randInstrumentSeed = 0
+      let randInstrument = {}
+      const generateRandomInstrument = (seed) => {
+        console.log(seed)
+        if (!Z.ctx) {
+          Z.init()
+        }
+        Z.generateRandomInstrument(seed)
+      }
+      // Function to handle keypresses
+      const pressedKeys = {};
+      function handleKeyPress(event) {
+        if (pressedKeys[event.key.toLowerCase()]) {
+          return;
+        }
+        // Prevent triggering notes while a text area is active.
+        const tag = document?.activeElement?.tagName;
+        if (tag && (tag == "INPUT" || tag == "TEXTAREA")) {
+          return;
+        }
+        const instrumentSeedInput = document.getElementById("instrumentSeedInput");
+        let previewNote = false; // If true, will trigger middle C
+
+        // Choose next instrument seed
+        if (event.key == "+") {
+          const randSeed = parseInt(instrumentSeedInput.value);
+          instrumentSeedInput.value = randSeed + 1;
+          previewNote = true;
+        }
+
+        // Choose previous instrument seed
+        else if (event.key == "-") {
+          const randSeed = parseInt(instrumentSeedInput.value);
+          instrumentSeedInput.value = randSeed - 1;
+          previewNote = true;
+        }
+
+        // Change octave with page up and down keys
+        else if (event.key === "PageUp") {
+          const octaveSelect = document.getElementById("octaveSelect");
+          octaveSelect.value = Math.min(parseInt(octaveSelect.value) + 1, 3);
+          event.preventDefault();
+          return false;
+        } else if (event.key === "PageDown") {
+          const octaveSelect = document.getElementById("octaveSelect");
+          octaveSelect.value = Math.max(parseInt(octaveSelect.value) - 1, -3);
+          event.preventDefault();
+          return false;
+        }
+
+        const keyToNoteMap = {
+          q: 0,
+          2: 1,
+          w: 2,
+          3: 3,
+          e: 4,
+          r: 5,
+          5: 6,
+          t: 7,
+          6: 8,
+          y: 9,
+          7: 10,
+          u: 11,
+          i: 12,
+          9: 13,
+          o: 14,
+          0: 15,
+          p: 16,
+        };
+
+        // Either play the piano keyboard note, or trigger a middle-c preview note
+        const note = previewNote ? 0 : keyToNoteMap[event.key.toLowerCase()];
+        if (note !== undefined) {
+          const selectedOctave = parseInt(document.getElementById("octaveSelect").value);
+          const randSeed = parseInt(instrumentSeedInput.value);
+          if (randInstrumentSeed !== randSeed) {
+            randInstrumentSeed = randSeed;
+            randInstrument = Z.generateRandomInstrument(randSeed);
+          }
+          Z.play(note + selectedOctave * 12, randInstrument);
+          pressedKeys[event.key.toLowerCase()] = true;
+        }
+      }
+
+      function handleKeyUp(event) {
+        delete pressedKeys[event.key.toLowerCase()];
+      }
+
+      function writeInstrumentToDiv(instrument) {
+        const container = document.getElementById("instrumentJson");
+        // Convert the instrument object to a JSON string with indentation
+        const jsonString = JSON.stringify(instrument, null, 2);
+        // Create a pre element to preserve the indentation
+        container.textContent = jsonString;
+      }
+
+      function handleRandomInstrument() {
+        const newSeed = Math.floor(Math.random() * Z.mInt);
+        document.getElementById("instrumentSeedInput").value = newSeed;
+        if (randInstrumentSeed !== newSeed) {
+          randInstrumentSeed = newSeed;
+          randInstrument = Z.generateRandomInstrument(newSeed);
+        }
+        writeInstrumentToDiv(randInstrument);
+
+        //fake a piano key press
+        handleKeyPress({ key: "q" });
+        pushStateToHistory();
+      }
+
+      function pushStateToHistory() {
+        const instrumentSeed = document.getElementById("instrumentSeedInput").value;
+        const state = {
+          instrumentSeed,
+        };
+
+        const url = `?instrumentSeed=${instrumentSeed}`;
+
+        history.pushState(state, "", url);
+      }
+
+      function loadStateFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const instrumentSeed = urlParams.get("instrumentSeed");
+
+        if (instrumentSeed) {
+          document.getElementById("instrumentSeedInput").value = instrumentSeed;
+        }
+      }
+
+      // Listen for keyboard input
+      document.addEventListener("keydown", handleKeyPress);
+      document.addEventListener("keyup", handleKeyUp);
+    </script>
+    <div class="editor">
+      <b>Instrument Selector</b> (Play with qwerty keys)<br />
+      <div>
+        <label for="octaveSelect">Octave</label>
+        <select id="octaveSelect">
+          <option value="-3">-3</option>
+          <option value="-2">-2</option>
+          <option value="-1">-1</option>
+          <option value="0" selected>0</option>
+          <option value="1">+1</option>
+          <option value="2">+2</option>
+          <option value="3">+3</option>
+        </select>
+      </div>
+      <div>
+        <label for="instrumentSeedInput">Instrument Seed</label>
+        <input
+          id="instrumentSeedInput"
+          type="number"
+          value="0"
+          onchange='writeInstrumentToDiv(generateRandomInstrument(parseInt(this.value)));handleKeyPress({key:"q"})'
+        />
+        <button onclick="handleRandomInstrument()">Random Instrument</button>
+      </div>
+      <div id="instrumentInspector">
+        <h3>Instrument Settings</h3>
+        <pre id="instrumentJson"></pre>
+      </div>
+    </div>
+
+    <script>
+      writeInstrumentToDiv(generateRandomInstrument(parseInt(0)));
+      window.addEventListener("load", loadStateFromUrl);
+    </script>
+  </body>
+</html>
