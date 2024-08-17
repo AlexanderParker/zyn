@@ -4,15 +4,15 @@ This is a small JS audio synthesizer which clocks in at around 5.64kb (~2.4kb zi
 
 It could be useful for small code-golf projects, js13k etc. It's not designed to be extremely controllable, the idea is to allow a wide range of sounds to be generated from simple integer seeds.
 
-# Demo / Explorer
+# Demo
 
 Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
 
 Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
 
-# Usage
+# Quick Start
 
-The following is a basic example that plays a single note.
+Simply import the minified Z.js into your project, initialise it, generate an instrument, then play it, as follows:
 
 ```
 // Must be called after user interaction or browser will complain.
