@@ -22,7 +22,7 @@ Z.play(0, instrument)
 
 # Demo / Explorer
 
-Check out [the demo page](https://alexanderparker.github.io/zyn/). It's pretty bare-bones but provides a simple keyboard sound player.
+Check out [the demo page](https://alexanderparker.github.io/zyn/) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
 
 Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
 
