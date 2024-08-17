@@ -101,6 +101,21 @@
       .notice strong {
         color: #e17055;
       }
+      .preset-list {
+        margin-bottom: 15px;
+      }
+      .preset-list a {
+        display: inline-block;
+        margin-right: 10px;
+        padding: 5px 10px;
+        background-color: #f0f0f0;
+        border-radius: 3px;
+        text-decoration: none;
+        color: #333;
+      }
+      .preset-list a:hover {
+        background-color: #e0e0e0;
+      }
     </style>
   </head>
   <body>
@@ -118,11 +133,16 @@
         <li>Use + and - keys to cycle through instrument seeds</li>
       </ul>
       <div class="notice">
-        <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh. Please listen at a safe and comfortable volume
-        to protect your hearing and enjoy the experience.
+        <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh. Please listen at a safe and comfortable volume to
+        protect your hearing and enjoy the experience.
       </div>
       <h2>Instrument Selector</h2>
       <div class="editor">
+        <div class="preset-list">
+          <strong>Presets:</strong>
+          <a href="?instrumentSeed=2550542884">Cavern Drips</a>
+          <a href="?instrumentSeed=780366392">Nice Pluck</a>
+        </div>
         <div>
           <label for="octaveSelect">Octave</label>
           <select id="octaveSelect">
