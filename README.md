@@ -29,14 +29,16 @@ Check out [the demo page](https://alexanderparker.github.io/zyn/). It's pretty b
 
 Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
 
+## Nice "Presets"
+
+* [Cavern Drips (2550542884)](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884)
+
+
 # Show and Tell
 
 I'd love to see what people make with this. Feel free to share your creations and I'll list below.
 
-# Nice "Presets"
-
-* [Cavern Drips (2550542884)](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884)
-
+* Your demo here?
 
 # Bugs and Improvements
 
