@@ -1,7 +1,7 @@
 let Z = {
   // Maximum 32-bit integer (we set explicitly to rule out differences between interpreters)
   mInt: 4294967296,
-  // 32-bit random number generator function
+  // 32-bit random number generator function (Tommy Ettinger's Mulberry32)
   m32:
     (a) =>
     (f = 1) => {
