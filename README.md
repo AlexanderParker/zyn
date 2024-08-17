@@ -6,7 +6,7 @@ It could be useful for small code-golf projects, js13k etc. It's not designed to
 
 # Demo
 
-Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
+Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=4044828069) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
 
 Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
 
@@ -16,14 +16,20 @@ Simply import the minified Z.js into your project, initialise it, generate an in
 
 ```
 // Must be called after user interaction or browser will complain.
-Z.init()
+Z.init();
 
 // Generate an instrument for the given seed:
-let seed = 13
-let instrument = Z.getInstrument(seed)
+let seed = 13;
+let instrument = Z.getInstrument(seed);
 
 // Play note 0 (Middle C)
-Z.play(0, instrument)
+Z.play(0, instrument);
+```
+
+Optionally, you can specify a volume (gain) for playback, i.e:
+
+```
+Z.play(0, instrument, 0.1); // 10% gain.
 ```
 
 # Show and Tell

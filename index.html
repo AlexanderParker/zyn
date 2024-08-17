@@ -254,15 +254,15 @@
           this.createPianoKeyboard();
         },
 
-        generateRandomInstrument(seed) {
-          this.randInstrument = Z.generateRandomInstrument(seed);
+        getInstrument(seed) {
+          this.randInstrument = Z.getInstrument(seed);
           return this.randInstrument;
         },
 
         updateInstrument(seed) {
           if (!Z.ctx) Z.init();          
           this.randInstrumentSeed = seed;
-          this.generateRandomInstrument(seed);
+          this.getInstrument(seed);
           this.writeInstrumentToDiv();
         },
 
@@ -312,7 +312,7 @@
 
         playPianoNote(note) {
           const octave = parseInt(document.getElementById("octaveSelect").value);
-          Z.play(note + octave * 12, this.randInstrument);
+          Z.play(note + octave * 12, this.randInstrument, 1);
           document.querySelector(`[data-note="${note}"]`).classList.add("pressed");
         },
 

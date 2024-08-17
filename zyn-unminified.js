@@ -390,14 +390,10 @@ let Z = {
     };
   },
   // Play a single note with a given instrument
-  play: (note, instrument) => {
+  play: (note, instrument, gain = 1) => {
     let layer = {
-      progression: [note],
-      progressionStretch: 1,
-      poly: 1,
-      polyDir: "start",
       rootNote: 0,
-      gain: 0.5,
+      gain: 0.5 * gain,
       pan: 0,
       instrument: instrument,
     };
