@@ -4,10 +4,6 @@ This is a small JS audio synthesizer which clocks in at around 5k.
 
 It could be useful for small code-golf projects, js13k etc. It's not designed to be extremely controllable, the idea is to allow a wide range of sounds to be generated from simple integer seeds.
 
-Currently it's good for one-hit samples played at different pitches, though you could easily write a simple sequencer for music if you wish (this was part of just such a project - the music-generating part sounded awful so I've released the subjectively "good" bit!)
-
-This means for a 5k overhead, you should be able to generate basically limitless sounds for the price of a few integers.
-
 # Usage
 
 The following is a basic example that plays a single note.
