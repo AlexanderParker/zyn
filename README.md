@@ -33,6 +33,10 @@ Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use
 
 I'd love to see what people make with this. Feel free to share your creations and I'll list below.
 
+# Nice "Presets"
+
+[Cavern Drips (2550542884)](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884)
+
 # Bugs and Improvements
 
 PRs and suggestions are welcome as always, though I'm not providing any official support I'll definitely try to address things as I can.
