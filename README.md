@@ -4,6 +4,12 @@ This is a small JS audio synthesizer which clocks in at around 5.64kb (~2.4kb zi
 
 It could be useful for small code-golf projects, js13k etc. It's not designed to be extremely controllable, the idea is to allow a wide range of sounds to be generated from simple integer seeds.
 
+# Demo / Explorer
+
+Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
+
+Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
+
 # Usage
 
 The following is a basic example that plays a single note.
@@ -19,12 +25,6 @@ let instrument = Z.getInstrument(seed)
 // Play note 0 (Middle C)
 Z.play(0, instrument)
 ```
-
-# Demo / Explorer
-
-Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
-
-Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
 
 # Show and Tell
 
