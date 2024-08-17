@@ -81,9 +81,12 @@ let Z = {
       layer.instrument.oscs.forEach((cnf) => {
         let osc;
         let oFreq = Z.freq(rootNote, note + cnf.oct * 12 + cnf.detune);
+        // Create oscillator or noise source
         if (cnf.waveform == "noise") {
+          // Create noise source
           osc = Z.aC.createBufferSource();
           if (!Z.noiseBuffer) {
+            // Create noise buffer if it doesn't exist
             let bufferSize = 2 * SR;
             Z.noiseBuffer = Z.aC.createBuffer(1, bufferSize, SR);
             let output = Z.noiseBuffer.getChannelData(0);
@@ -94,12 +97,15 @@ let Z = {
           osc.buffer = Z.noiseBuffer;
           osc.loop = true;
         } else {
+          // Create oscillator with specified waveform
           osc = Z.aC.createOscillator();
           osc.type = cnf.waveform || "sine";
           osc.frequency.value = oFreq;
         }
+        // Create gain node and apply ADSR envelope
         let nGain = Z.aC.createGain();
         finalStopTime = Math.max(finalStopTime, Z.adsr(nGain.gain, now, cnf.adsrGain, layer.gain * voiceGain));
+        // Create and connect gain LFO if specified
         let gLFO = cnf.gLFO ? Z.aC.createOscillator() : null;
         if (gLFO) {
           let gLFOg = Z.aC.createGain();
@@ -111,9 +117,11 @@ let Z = {
           gLFO.start(now);
           gLFO.stop(finalStopTime);
         }
+        // Create filter and apply ADSR envelope
         let nFilt = Z.aC.createBiquadFilter();
         nFilt.Q.value = cnf.filterQ || 0;
         finalStopTime = Math.max(finalStopTime, Z.adsr(nFilt.frequency, now, cnf.adsrFilter, 20000), Z.adsr(nFilt.Q, now, cnf.adsrFilterQ, 30));
+        // Create and connect filter LFO if specified
         let fLFO = cnf.fLFO ? Z.aC.createOscillator() : null;
         if (fLFO) {
           let fLFOg = Z.aC.createGain();
@@ -125,9 +133,11 @@ let Z = {
           fLFO.start(now);
           fLFO.stop(finalStopTime);
         }
+        // Apply pitch envelope if specified (not for noise)
         if (cnf.pENV && cnf.waveform != "noise") {
           finalStopTime = Math.max(finalStopTime, Z.adsr(osc.frequency, now, cnf.pENV, oFreq * cnf.pENV.amount || 0));
         }
+        // Create and connect pitch LFO if specified (not for noise)
         let pLFO = cnf.waveform !== "noise" && cnf.pLFO ? Z.aC.createOscillator() : null;
         if (pLFO) {
           let pLFOg = Z.aC.createGain();
@@ -139,6 +149,7 @@ let Z = {
           pLFO.start(now);
           pLFO.stop(finalStopTime);
         }
+        // Create and connect FM (Frequency Modulation) if specified
         if (cnf.FM) {
           let FM = Z.aC.createOscillator();
           let FMGain = Z.aC.createGain();
@@ -150,15 +161,18 @@ let Z = {
           FM.start(now);
           FM.stop(finalStopTime);
         }
+        // Create stereo panner
         let nPan = Z.aC.createStereoPanner();
         if (typeof layer.pan == "function") {
           nPan.pan.setValueAtTime(layer.pan(layer) || 0, now);
         } else {
           nPan.pan.setValueAtTime(layer.pan || 0, now);
         }
+        // Connect nodes: oscillator -> filter -> gain -> panner
         osc.connect(nFilt);
         nFilt.connect(nGain);
         nGain.connect(nPan);
+        // Create delay effect if specified
         let nDel, nVerb;
         if (!cnf?.fx?.del) {
           let nDelID = Z.id({ ...cnf, d: "0" });
@@ -182,6 +196,7 @@ let Z = {
           }
         }
         nPan.connect(nDel);
+        // Create reverb effect if specified
         if (!cnf?.fx?.verb) {
           let noId = Z.id({ ...cnf, r: "0" });
           nVerb = Z.fxNodes[noId];
@@ -208,6 +223,7 @@ let Z = {
             Z.fxNodes[rId] = gVerb;
           }
         }
+        // Connect Delay -> Reverb -> Output
         nDel.connect(nVerb);
         nVerb.connect(Z.aC.destination);
         oscs.push(osc);
