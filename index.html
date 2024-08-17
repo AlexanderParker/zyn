@@ -5,31 +5,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zyn Demo</title>
     <script src="./Z.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+      }
+      .editor {
+        margin-top: 20px;
+      }
+      label {
+        display: inline-block;
+        margin-bottom: 5px;
+      }
+      select,
+      input,
+      button {
+        margin-bottom: 10px;
+        padding: 5px;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #instrumentJson {
+        background-color: #f8f8f8;
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 3px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .github-link {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        color: #333;
+        margin-top: 20px;
+      }
+      .github-link img {
+        width: 24px;
+        height: 24px;
+        margin-right: 10px;
+      }
+    </style>
   </head>
   <body>
-    <div class="editor">
-      <b>Instrument Selector</b> (Play with qwerty keys)<br />
-      <div>
-        <label for="octaveSelect">Octave</label>
-        <select id="octaveSelect">
-          <option value="-3">-3</option>
-          <option value="-2">-2</option>
-          <option value="-1">-1</option>
-          <option value="0" selected>0</option>
-          <option value="1">+1</option>
-          <option value="2">+2</option>
-          <option value="3">+3</option>
-        </select>
+    <div class="container">
+      <h1>Zyn Demo</h1>
+      <div class="editor">
+        <b>Instrument Selector</b> (Play with qwerty keys)<br />
+        <div>
+          <label for="octaveSelect">Octave</label>
+          <select id="octaveSelect">
+            <option value="-3">-3</option>
+            <option value="-2">-2</option>
+            <option value="-1">-1</option>
+            <option value="0" selected>0</option>
+            <option value="1">+1</option>
+            <option value="2">+2</option>
+            <option value="3">+3</option>
+          </select>
+        </div>
+        <div>
+          <label for="instrumentSeedInput">Instrument Seed</label>
+          <input id="instrumentSeedInput" type="number" value="0" />
+          <button id="randomInstrumentButton">Random Instrument</button>
+        </div>
+        <div id="instrumentInspector">
+          <h3>Instrument Settings</h3>
+          <pre id="instrumentJson"></pre>
+        </div>
       </div>
-      <div>
-        <label for="instrumentSeedInput">Instrument Seed</label>
-        <input id="instrumentSeedInput" type="number" value="0" />
-        <button id="randomInstrumentButton">Random Instrument</button>
-      </div>
-      <div id="instrumentInspector">
-        <h3>Instrument Settings</h3>
-        <pre id="instrumentJson"></pre>
-      </div>
+      <a href="https://github.com/AlexanderParker/zyn" class="github-link" target="_blank" rel="noopener noreferrer">
+        <img src="https://github.com/favicon.ico" alt="GitHub icon" />
+        View on GitHub
+      </a>
     </div>
 
     <script>
@@ -105,7 +176,7 @@
           if (note !== undefined) {
             const octave = parseInt(document.getElementById("octaveSelect").value);
             Z.play(note + octave * 12, this.randInstrument);
-            this.pressedKeys[key] = true;            
+            this.pressedKeys[key] = true;
           }
         },
 
