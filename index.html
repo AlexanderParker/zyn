@@ -131,6 +131,33 @@
         white-space: nowrap;
         border-width: 0;
       }
+      .piano {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+      .key {
+        width: 40px;
+        height: 120px;
+        border: 1px solid #000;
+        background-color: #fff;
+        margin: 0 2px;
+        cursor: pointer;
+      }
+      .key.black {
+        width: 30px;
+        height: 80px;
+        background-color: #000;
+        margin-left: -15px;
+        margin-right: -15px;
+        z-index: 1;
+      }
+      .key.pressed {
+        background-color: #ddd;
+      }
+      .key.black.pressed {
+        background-color: #444;
+      }
     </style>
   </head>
   <body>
@@ -139,9 +166,14 @@
         <h1>Zyn Demo</h1>
       </header>
       <main>
+        <p>Welcome to the Zyn Demo!</p>
         <p>
-          Welcome to the Zyn Demo! This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard
-          (QWERTY keys) to play notes and experiment with different instrument seeds.
+          Zyn is a small JS audio synthesizer which clocks in at around 5.64kb (~2.4kb zipped). You can read all about it on GitHub
+          <a href="https://github.com/AlexanderParker/zyn">here</a>.
+        </p>
+        <p>
+          This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard (QWERTY keys) to play notes and
+          experiment with different instrument seeds.
         </p>
         <h2>How to use:</h2>
         <ul>
@@ -188,6 +220,7 @@
             <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
             <button id="randomInstrumentButton">Random Instrument</button>
           </div>
+          <div class="piano" id="pianoKeyboard"></div>
           <h2>Instrument Structure</h2>
           <p>
             Expand the section below if you want to see how an instrument is represented internally. If you wanted to, you could create your own instruments for
@@ -200,7 +233,7 @@
         </div>
       </main>
       <footer>
-        <a href="https://github.com/AlexanderParker/zyn" class="github-link" target="_blank" rel="noopener noreferrer">
+        <a href="https://github.com/AlexanderParker/zyn" class="github-link">
           <img src="https://github.com/favicon.ico" alt="" />
           View on GitHub
         </a>
@@ -218,6 +251,7 @@
           this.attachEventListeners();
           this.loadStateAndUpdateInstrument();
           this.setupCollapsible();
+          this.createPianoKeyboard();
         },
 
         generateRandomInstrument(seed) {
@@ -226,10 +260,9 @@
         },
 
         updateInstrument(seed) {
-          if (this.randInstrumentSeed !== seed) {
-            this.randInstrumentSeed = seed;
-            this.generateRandomInstrument(seed);
-          }
+          if (!Z.ctx) Z.init();          
+          this.randInstrumentSeed = seed;
+          this.generateRandomInstrument(seed);
           this.writeInstrumentToDiv();
         },
 
@@ -254,6 +287,39 @@
           }
         },
 
+        createPianoKeyboard() {
+          const keyboard = document.getElementById("pianoKeyboard");
+          const keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+          for (let i = 0; i < 17; i++) {
+            const key = document.createElement("div");
+            const note = i % 12;
+            key.className = `key ${["C#", "D#", "F#", "G#", "A#"].includes(keys[note]) ? "black" : "white"}`;
+            key.dataset.note = i;
+            key.addEventListener("mousedown", () => this.playPianoNote(i));
+            key.addEventListener("mouseup", () => this.stopPianoNote(i));
+            key.addEventListener("touchstart", (e) => {
+              e.preventDefault();
+              this.playPianoNote(i);
+            });
+            key.addEventListener("touchend", (e) => {
+              e.preventDefault();
+              this.stopPianoNote(i);
+            });
+            keyboard.appendChild(key);
+          }
+        },
+
+        playPianoNote(note) {
+          const octave = parseInt(document.getElementById("octaveSelect").value);
+          Z.play(note + octave * 12, this.randInstrument);
+          document.querySelector(`[data-note="${note}"]`).classList.add("pressed");
+        },
+
+        stopPianoNote(note) {
+          document.querySelector(`[data-note="${note}"]`).classList.remove("pressed");
+        },
+
         playNote(key) {
           const keyToNoteMap = {
             q: 0,
@@ -276,13 +342,34 @@
           };
           const note = keyToNoteMap[key];
           if (note !== undefined) {
-            const octave = parseInt(document.getElementById("octaveSelect").value);
-            Z.play(note + octave * 12, this.randInstrument);
-            this.pressedKeys[key] = true;
+            this.playPianoNote(note);
           }
         },
 
         handleKeyUp(event) {
+          const keyToNoteMap = {
+            q: 0,
+            2: 1,
+            w: 2,
+            3: 3,
+            e: 4,
+            r: 5,
+            5: 6,
+            t: 7,
+            6: 8,
+            y: 9,
+            7: 10,
+            u: 11,
+            i: 12,
+            9: 13,
+            o: 14,
+            0: 15,
+            p: 16,
+          };
+          const note = keyToNoteMap[event.key.toLowerCase()];
+          if (note !== undefined) {
+            this.stopPianoNote(note);
+          }
           delete this.pressedKeys[event.key.toLowerCase()];
         },
 
