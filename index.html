@@ -21,7 +21,8 @@
         border-radius: 5px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
       }
-      h1 {
+      h1,
+      h2 {
         color: #333;
       }
       .editor {
@@ -68,13 +69,45 @@
         height: 24px;
         margin-right: 10px;
       }
+      .collapsible {
+        background-color: #777;
+        color: white;
+        cursor: pointer;
+        padding: 18px;
+        width: 100%;
+        border: none;
+        text-align: left;
+        outline: none;
+        font-size: 15px;
+      }
+      .active,
+      .collapsible:hover {
+        background-color: #555;
+      }
+      .content {
+        padding: 0 18px;
+        display: none;
+        overflow: hidden;
+        background-color: #f1f1f1;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>Zyn Demo</h1>
+      <p>
+        Welcome to the Zyn Demo! This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard (QWERTY
+        keys) to play notes and experiment with different instrument seeds.
+      </p>
+      <h2>How to use:</h2>
+      <ul>
+        <li>Use the QWERTY keys on your keyboard to play notes (Q is middle C)</li>
+        <li>Change the octave using the dropdown or Page Up/Down keys</li>
+        <li>Modify the instrument seed manually or click "Random Instrument"</li>
+        <li>Use + and - keys to cycle through instrument seeds</li>
+      </ul>
+      <h2>Instrument Selector</h2>
       <div class="editor">
-        <b>Instrument Selector</b> (Play with qwerty keys)<br />
         <div>
           <label for="octaveSelect">Octave</label>
           <select id="octaveSelect">
@@ -92,8 +125,13 @@
           <input id="instrumentSeedInput" type="number" value="0" />
           <button id="randomInstrumentButton">Random Instrument</button>
         </div>
-        <div id="instrumentInspector">
-          <h3>Instrument Settings</h3>
+        <h2>Instrument Selector</h2>
+        <p>
+          Expand the section below if you want to see how an instrument is represented internally. If you wanted to, you could create your own instruments for
+          the synth instead of using the random generator by following this format.
+        </p>
+        <button type="button" class="collapsible">Instrument Structure</button>
+        <div class="content">
           <pre id="instrumentJson"></pre>
         </div>
       </div>
@@ -111,9 +149,9 @@
 
         init() {
           if (!Z.ctx) Z.init();
-          this.loadStateFromUrl();
           this.attachEventListeners();
-          this.updateInstrument(0);
+          this.loadStateAndUpdateInstrument();
+          this.setupCollapsible();
         },
 
         generateRandomInstrument(seed) {
@@ -127,8 +165,6 @@
             this.generateRandomInstrument(seed);
           }
           this.writeInstrumentToDiv();
-          this.playNote("q");
-          this.pushStateToHistory();
         },
 
         handleKeyPress(event) {
@@ -142,7 +178,7 @@
           if (key === "+" || key === "-") {
             const currentSeed = parseInt(instrumentSeedInput.value);
             instrumentSeedInput.value = key === "+" ? currentSeed + 1 : currentSeed - 1;
-            this.updateInstrument(parseInt(instrumentSeedInput.value));
+            this.updateInstrumentAndPushState(parseInt(instrumentSeedInput.value));
           } else if (key === "pageup" || key === "pagedown") {
             const currentOctave = parseInt(octaveSelect.value);
             octaveSelect.value = key === "pageup" ? Math.min(currentOctave + 1, 3) : Math.max(currentOctave - 1, -3);
@@ -192,21 +228,34 @@
         handleRandomInstrument() {
           const newSeed = Math.floor(Math.random() * Z.mInt);
           document.getElementById("instrumentSeedInput").value = newSeed;
-          this.updateInstrument(newSeed);
+          this.updateInstrumentAndPushState(newSeed);
         },
 
-        pushStateToHistory() {
-          const instrumentSeed = document.getElementById("instrumentSeedInput").value;
+        updateInstrumentAndPushState(seed) {
+          this.updateInstrument(seed);
+          this.pushStateToHistory(seed);
+        },
+
+        pushStateToHistory(instrumentSeed) {
           const state = { instrumentSeed };
           const url = `?instrumentSeed=${instrumentSeed}`;
           history.pushState(state, "", url);
         },
 
-        loadStateFromUrl() {
+        loadStateAndUpdateInstrument() {
           const urlParams = new URLSearchParams(window.location.search);
-          const instrumentSeed = urlParams.get("instrumentSeed");
-          if (instrumentSeed) {
+          const instrumentSeed = urlParams.get("instrumentSeed") || 0;
+          document.getElementById("instrumentSeedInput").value = instrumentSeed;
+          this.updateInstrument(parseInt(instrumentSeed));
+        },
+
+        handlePopState(event) {
+          if (event.state && event.state.instrumentSeed !== undefined) {
+            const instrumentSeed = event.state.instrumentSeed;
             document.getElementById("instrumentSeedInput").value = instrumentSeed;
+            this.updateInstrument(parseInt(instrumentSeed));
+          } else {
+            this.loadStateAndUpdateInstrument();
           }
         },
 
@@ -215,11 +264,27 @@
           return tag === "INPUT" || tag === "TEXTAREA";
         },
 
+        setupCollapsible() {
+          const coll = document.getElementsByClassName("collapsible");
+          for (let i = 0; i < coll.length; i++) {
+            coll[i].addEventListener("click", function () {
+              this.classList.toggle("active");
+              const content = this.nextElementSibling;
+              if (content.style.display === "block") {
+                content.style.display = "none";
+              } else {
+                content.style.display = "block";
+              }
+            });
+          }
+        },
+
         attachEventListeners() {
           document.addEventListener("keydown", this.handleKeyPress.bind(this));
           document.addEventListener("keyup", this.handleKeyUp.bind(this));
+          window.addEventListener("popstate", this.handlePopState.bind(this));
           document.getElementById("instrumentSeedInput").addEventListener("change", (e) => {
-            this.updateInstrument(parseInt(e.target.value));
+            this.updateInstrumentAndPushState(parseInt(e.target.value));
           });
           document.getElementById("randomInstrumentButton").addEventListener("click", this.handleRandomInstrument.bind(this));
         },
