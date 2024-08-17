@@ -29,6 +29,7 @@ Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use
 ## Nice "Presets"
 
 - [Cavern Drips (2550542884)](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884)
+- [Nice Pluck (780366392)](https://alexanderparker.github.io/zyn/?instrumentSeed=780366392)
 
 # Show and Tell
 
