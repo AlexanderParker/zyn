@@ -43,7 +43,7 @@ let Z = {
     }
     return curve;
   },
-  // Generate a unique ID for an object
+  // Generate a unique ID for an object (found here https://stackoverflow.com/a/15710692)
   id: (obj) =>
     JSON.stringify(obj)
       .split("")
