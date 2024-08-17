@@ -30,6 +30,10 @@ Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use
 
 - [Cavern Drips (2550542884)](https://alexanderparker.github.io/zyn/?instrumentSeed=2550542884)
 - [Nice Pluck (780366392)](https://alexanderparker.github.io/zyn/?instrumentSeed=780366392)
+- [Piff (1886683946)](https://alexanderparker.github.io/zyn/?instrumentSeed=1886683946)
+- [Bubble (1190652164)](https://alexanderparker.github.io/zyn/?instrumentSeed=1190652164)
+- [Quock (1926572373)](https://alexanderparker.github.io/zyn/?instrumentSeed=1926572373)
+- [BandSaw (1274513689)](https://alexanderparker.github.io/zyn/?instrumentSeed=1274513689)
 
 # Show and Tell
 
