@@ -1,5 +1,7 @@
 let Z = {
+  // Maximum 32-bit integer (we set explicitly to rule out differences between interpreters)
   mInt: 4294967296,
+  // 32-bit random number generator function
   m32:
     (a) =>
     (f = 1) => {
@@ -8,21 +10,30 @@ let Z = {
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
       return (((t ^ (t >>> 14)) >>> 0) / Z.mInt) * f;
     },
+  // AudioContext
   ctx: null,
+  // Initialize AudioContext
   init: () => {
     Z.ctx = new (window.AudioContext || window.webkitAudioContext)();
   },
+  // Getter for AudioContext
   get aC() {
     return this.ctx;
   },
+  // Getter for sample rate
   get sampleRate() {
     return this.aC.sampleRate;
   },
+  // Object to store effect nodes
   fxNodes: {},
+  // Buffer for noise generation
   noiseBuffer: null,
+  // Arrays of available waveforms and filters
   waveforms: ["sine", "square", "sawtooth", "triangle"],
   filters: ["lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", "allpass"],
+  // Generate a random sample between -1 and 1
   randSample: () => Math.random() * 2 - 1,
+  // Generate a distortion curve
   getDistCurve: (k) => {
     let curve = new Float32Array(sampleRate);
     let deg = Math.PI / 180;
@@ -32,6 +43,7 @@ let Z = {
     }
     return curve;
   },
+  // Generate a unique ID for an object
   id: (obj) =>
     JSON.stringify(obj)
       .split("")
@@ -39,7 +51,9 @@ let Z = {
         a = (a << 5) - a + b.charCodeAt(0);
         return a & a;
       }, 0),
+  // Calculate frequency for a given note
   freq: (rootNote, noteOffset) => 261.63 * Math.pow(2, (rootNote + noteOffset) / 12),
+  // Apply ADSR envelope to a parameter
   adsr: (ctx, t, env, max) => {
     let { A, D, S, R } = env;
     let tEnd = t + A[0] + D[0] + S[0] + R[0];
@@ -51,6 +65,7 @@ let Z = {
     lr(R[1] * max, tEnd);
     return tEnd;
   },
+  // Render audio for given notes and layer
   render: (noteOffset, notes, layer) => {
     if (notes.length == 0) return;
     let rootNote = layer.rootNote + noteOffset;
@@ -61,6 +76,7 @@ let Z = {
     let now = Z.aC.currentTime + buf;
     let finalStopTime = 0;
     let SR = Z.sampleRate;
+    // Create and connect oscillators, filters, and effects for each note
     notes.forEach((note) => {
       layer.instrument.oscs.forEach((cnf) => {
         let osc;
@@ -197,6 +213,7 @@ let Z = {
         oscs.push(osc);
       });
     });
+    // Apply distortion if specified
     let dCurve = layer?.dist?.curve || null;
     if (dCurve) {
       nDist.curve = new Float32Array(dCurve);
@@ -206,15 +223,18 @@ let Z = {
       });
       nDist.connect(Z.aC.destination);
     }
+    // Start and stop oscillators
     oscs.forEach((osc) => {
       osc.start(now);
       osc.stop(finalStopTime);
     });
   },
+  // Generate a random instrument based on a seed
   getInstrument: (seed) => {
     seed = parseInt(seed);
     let r = Z.m32(seed);
     let oscs = [];
+    // Helper function to generate envelope parameters
     let gEnv = (t, v) => {
       let n = [r(v[0]), r(v[1]), r(v[2]), r(v[3])];
       n.normalize = function () {
@@ -232,6 +252,7 @@ let Z = {
     let a = [2, 2, 1, 2];
     let b = [0, 1, 1, 0];
     let c = [0.1, 0.2, 0.3, 0.5];
+    // Define instrument types (this could use more work / experimentation)
     let iTypes = [
       {
         t: "pad",
@@ -267,7 +288,9 @@ let Z = {
         w: ["noise", ...Z.waveforms],
       },
     ];
+    // Select a random instrument type (we should probably add this as a parameter too)
     let iType = iTypes[Math.floor(r(iTypes.length))];
+    // Generate oscillators for the instrument
     for (let i = 0; i < Math.floor(r(iType.o) + 1); i++) {
       let waveform = iType.w[Math.floor(r(iType.w.length))];
       let nN = waveform != "noise";
@@ -350,6 +373,7 @@ let Z = {
       oscs: oscs,
     };
   },
+  // Play a single note with a given instrument
   play: (note, instrument) => {
     let layer = {
       progression: [note],
