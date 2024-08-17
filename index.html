@@ -46,7 +46,8 @@
         cursor: pointer;
         border-radius: 3px;
       }
-      button:hover {
+      button:hover,
+      button:focus {
         background-color: #45a049;
       }
       #instrumentJson {
@@ -81,7 +82,8 @@
         font-size: 15px;
       }
       .active,
-      .collapsible:hover {
+      .collapsible:hover,
+      .collapsible:focus {
         background-color: #555;
       }
       .content {
@@ -106,6 +108,7 @@
       }
       .preset-list a {
         display: inline-block;
+        margin-bottom: 10px;
         margin-right: 10px;
         padding: 5px 10px;
         background-color: #f0f0f0;
@@ -113,71 +116,95 @@
         text-decoration: none;
         color: #333;
       }
-      .preset-list a:hover {
+      .preset-list a:hover,
+      .preset-list a:focus {
         background-color: #e0e0e0;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Zyn Demo</h1>
-      <p>
-        Welcome to the Zyn Demo! This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard (QWERTY
-        keys) to play notes and experiment with different instrument seeds.
-      </p>
-      <h2>How to use:</h2>
-      <ul>
-        <li>Use the QWERTY keys on your keyboard to play notes (Q is middle C)</li>
-        <li>Change the octave using the dropdown or Page Up/Down keys</li>
-        <li>Modify the instrument seed manually or click "Random Instrument"</li>
-        <li>Use + and - keys to cycle through instrument seeds</li>
-      </ul>
-      <div class="notice">
-        <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh. Please listen at a safe and comfortable volume to
-        protect your hearing and enjoy the experience.
-      </div>
-      <h2>Instrument Selector</h2>
-      <div class="editor">
-        <div class="preset-list">
-          <strong>Presets:</strong>
-          <a href="?instrumentSeed=2550542884">Cavern Drips</a>
-          <a href="?instrumentSeed=780366392">Nice Pluck</a>
-          <a href="?instrumentSeed=1886683946">Piff</a>
-          <a href="?instrumentSeed=1190652164">Bubble</a>
-          <a href="?instrumentSeed=1926572373">Quock</a>
-          <a href="?instrumentSeed=1274513689">BandSaw</a>
-        </div>
-        <div>
-          <label for="octaveSelect">Octave</label>
-          <select id="octaveSelect">
-            <option value="-3">-3</option>
-            <option value="-2">-2</option>
-            <option value="-1">-1</option>
-            <option value="0" selected>0</option>
-            <option value="1">+1</option>
-            <option value="2">+2</option>
-            <option value="3">+3</option>
-          </select>
-        </div>
-        <div>
-          <label for="instrumentSeedInput">Instrument Seed</label>
-          <input id="instrumentSeedInput" type="number" value="0" />
-          <button id="randomInstrumentButton">Random Instrument</button>
-        </div>
-        <h2>Instrument Structure</h2>
+      <header>
+        <h1>Zyn Demo</h1>
+      </header>
+      <main>
         <p>
-          Expand the section below if you want to see how an instrument is represented internally. If you wanted to, you could create your own instruments for
-          the synth instead of using the random generator by following this format.
+          Welcome to the Zyn Demo! This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard
+          (QWERTY keys) to play notes and experiment with different instrument seeds.
         </p>
-        <button type="button" class="collapsible">Instrument Structure</button>
-        <div class="content">
-          <pre id="instrumentJson"></pre>
+        <h2>How to use:</h2>
+        <ul>
+          <li>Use the QWERTY keys on your keyboard to play notes (Q is middle C)</li>
+          <li>Change the octave using the dropdown or Page Up/Down keys</li>
+          <li>Modify the instrument seed manually or click "Random Instrument"</li>
+          <li>Use + and - keys to cycle through instrument seeds</li>
+        </ul>
+        <div class="notice" role="alert">
+          <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh. Please listen at a safe and comfortable volume to
+          protect your hearing and enjoy the experience.
         </div>
-      </div>
-      <a href="https://github.com/AlexanderParker/zyn" class="github-link" target="_blank" rel="noopener noreferrer">
-        <img src="https://github.com/favicon.ico" alt="GitHub icon" />
-        View on GitHub
-      </a>
+        <h2>Instrument Selector</h2>
+        <div class="editor">
+          <div class="preset-list" role="group" aria-label="Instrument presets">
+            <strong id="preset-label">Presets:</strong>
+            <a href="?instrumentSeed=2550542884" aria-labelledby="preset-label">Cavern Drips</a>
+            <a href="?instrumentSeed=780366392" aria-labelledby="preset-label">Nice Pluck</a>
+            <a href="?instrumentSeed=1886683946" aria-labelledby="preset-label">Piff</a>
+            <a href="?instrumentSeed=1190652164" aria-labelledby="preset-label">Bubble</a>
+            <a href="?instrumentSeed=1926572373" aria-labelledby="preset-label">Quock</a>
+            <a href="?instrumentSeed=1274513689" aria-labelledby="preset-label">BandSaw</a>
+            <a href="?instrumentSeed=2188131601" aria-labelledby="preset-label">Little Saw</a>
+            <a href="?instrumentSeed=4044828069" aria-labelledby="preset-label">Phat Boy</a>
+            <a href="?instrumentSeed=2220436593" aria-labelledby="preset-label">Boop</a>
+            <a href="?instrumentSeed=3252127078" aria-labelledby="preset-label">Zong</a>
+            <a href="?instrumentSeed=1762204959" aria-labelledby="preset-label">Flyby</a>
+          </div>
+          <div>
+            <label for="octaveSelect">Octave</label>
+            <select id="octaveSelect">
+              <option value="-3">-3</option>
+              <option value="-2">-2</option>
+              <option value="-1">-1</option>
+              <option value="0" selected>0</option>
+              <option value="1">+1</option>
+              <option value="2">+2</option>
+              <option value="3">+3</option>
+            </select>
+          </div>
+          <div>
+            <label for="instrumentSeedInput">Instrument Seed</label>
+            <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" />
+            <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
+            <button id="randomInstrumentButton">Random Instrument</button>
+          </div>
+          <h2>Instrument Structure</h2>
+          <p>
+            Expand the section below if you want to see how an instrument is represented internally. If you wanted to, you could create your own instruments for
+            the synth instead of using the random generator by following this format.
+          </p>
+          <button type="button" class="collapsible" aria-expanded="false" aria-controls="instrumentStructure">Instrument Structure</button>
+          <div id="instrumentStructure" class="content" aria-hidden="true">
+            <pre id="instrumentJson"></pre>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <a href="https://github.com/AlexanderParker/zyn" class="github-link" target="_blank" rel="noopener noreferrer">
+          <img src="https://github.com/favicon.ico" alt="" />
+          View on GitHub
+        </a>
+      </footer>
     </div>
 
     <script>
@@ -309,11 +336,10 @@
             coll[i].addEventListener("click", function () {
               this.classList.toggle("active");
               const content = this.nextElementSibling;
-              if (content.style.display === "block") {
-                content.style.display = "none";
-              } else {
-                content.style.display = "block";
-              }
+              const isExpanded = this.classList.contains("active");
+              this.setAttribute("aria-expanded", isExpanded);
+              content.style.display = isExpanded ? "block" : "none";
+              content.setAttribute("aria-hidden", !isExpanded);
             });
           }
         },
