@@ -250,6 +250,21 @@
       #stopAllButton:focus {
         background-color: #c0392b;
       }
+      .set-active-btn {
+        padding: 3px 8px;
+        font-size: 11px;
+        background-color: #007bff;
+        margin: 0;
+      }
+      .set-active-btn:hover:not(:disabled),
+      .set-active-btn:focus:not(:disabled) {
+        background-color: #0056b3;
+      }
+      .set-active-btn:disabled {
+        background-color: #28a745;
+        opacity: 1;
+        cursor: default;
+      }
     </style>
   </head>
   <body>
@@ -289,6 +304,7 @@
             <li><strong>Manage presets:</strong> Presets save octave and volume settings, and can be edited in-place</li>
             <li><strong>Export/Import:</strong> Back up your presets to a JSON file or share them with others</li>
             <li><strong>MIDI support:</strong> Click "Enable MIDI" to use a connected MIDI keyboard with velocity sensitivity and pedal support (sustain, sostenuto, soft)</li>
+            <li><strong>MIDI channels:</strong> Open the "MIDI Channels" section to configure 16 channels. Click "Set Active" to make a channel active &mdash; keyboard notes, instrument generation, and preset loads all apply to the active channel. Activity dots show note-on (green) and note-off (red) events. Save/load/export/import channel configurations as presets.</li>
           </ul>
         </div>
         <div class="notice" role="alert">
@@ -340,6 +356,22 @@
           <div>
             <button id="randomInstrumentButton">Generate Random</button>
           </div>
+          <button type="button" class="collapsible" aria-expanded="false" aria-controls="midiChannelsContent">MIDI Channels</button>
+          <div id="midiChannelsContent" class="content" aria-hidden="true">
+            <div id="midiChannelsSection" style="padding: 10px 0;"></div>
+            <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+              <div class="save-preset-row">
+                <input type="text" id="channelPresetNameInput" placeholder="Enter channel preset name..." />
+                <button id="saveChannelPresetButton">Save Channels</button>
+              </div>
+              <div id="channelPresetsContainer" style="margin-top: 10px;"></div>
+              <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;">
+                <button id="exportChannelPresetsButton" style="background-color: #6c757d;">Export Channel Presets</button>
+                <button id="importChannelPresetsButton" style="background-color: #6c757d;">Import Channel Presets</button>
+                <input type="file" id="importChannelFileInput" accept=".json" style="display: none;" />
+              </div>
+            </div>
+          </div>
           <h2>Saved Presets</h2>
           <div class="preset-section">
             <div class="save-preset-row">
@@ -381,24 +413,31 @@
         activePresetIndex: null, // Index of currently loaded preset, null if manual
         volume: 1.0,            // Volume 0-5 (synced between keyboard slider and preset)
         activeNotes: {},  // Track active voiceIds by note number
-        midiNotes: {},    // Track MIDI note voiceIds
-        sustainPedal: false,  // Sustain pedal state
-        sustainedNotes: {},   // Notes held by sustain pedal
-        sostenutoPedal: false,  // Sostenuto pedal state
-        sostenutoNotes: {},     // Notes held by sostenuto pedal
-        softPedal: false,       // Soft pedal state (una corda)
-        softPedalAmount: 0.5,   // Volume multiplier when soft pedal is pressed
+        midiNotes: {},    // Track MIDI note voiceIds, keyed by "channel_note"
+        sustainPedal: {},     // Per-channel sustain pedal state
+        sustainedNotes: {},   // Notes held by sustain pedal, keyed by "channel_note"
+        sostenutoPedal: {},   // Per-channel sostenuto pedal state
+        sostenutoNotes: {},   // Notes held by sostenuto pedal, keyed by "channel_note"
+        softPedal: {},        // Per-channel soft pedal state (una corda)
+        softPedalAmount: 0.5, // Volume multiplier when soft pedal is pressed
+        channels: new Array(16).fill(null), // Per-channel instrument assignments
+        activeChannel: 0,  // Which channel (0-15) is currently active for keyboard/editing
+        channelPresets: [],  // Saved channel configuration presets
+        activityTimeouts: {},  // Track timeout IDs for activity light fade
         presets: [],      // User presets from localStorage
         typeNames: ["Pad", "Lead", "Bass", "Key", "Pluck", "Bell", "String", "Drum", "Perc", "FX"],
 
         init() {
           if (!Z.ctx) Z.init();
           this.loadPresets();
+          this.loadChannelPresets();
           this.attachEventListeners();
           this.loadStateAndUpdateInstrument();
           this.setupCollapsible();
           this.createPianoKeyboard();
           this.renderPresetAccordion();
+          this.initChannels();
+          this.renderChannelPresets();
           // Auto-enable MIDI if previously enabled
           if (localStorage.getItem("zynMidiEnabled") === "true") {
             this.initMIDI();
@@ -449,18 +488,18 @@
             this.midiAccess = null;
           }
           // Release any held MIDI notes
-          Object.keys(this.midiNotes).forEach((note) => {
-            Z.noteOff(this.midiNotes[note]);
+          Object.keys(this.midiNotes).forEach((key) => {
+            Z.noteOff(this.midiNotes[key]);
           });
           this.midiNotes = {};
-          Object.keys(this.sustainedNotes).forEach((note) => {
-            Z.noteOff(this.sustainedNotes[note]);
+          Object.keys(this.sustainedNotes).forEach((key) => {
+            Z.noteOff(this.sustainedNotes[key]);
           });
           this.sustainedNotes = {};
           this.sostenutoNotes = {};
-          this.sustainPedal = false;
-          this.sostenutoPedal = false;
-          this.softPedal = false;
+          this.sustainPedal = {};
+          this.sostenutoPedal = {};
+          this.softPedal = {};
           // Show enable button, hide status
           document.getElementById("enableMidiButton").style.display = "";
           document.getElementById("midiStatusWrapper").style.display = "none";
@@ -494,114 +533,529 @@
         handleMIDIMessage(msg) {
           const [status, data1, data2] = msg.data;
           const command = status >> 4;
+          const channel = status & 0x0F;
           // Note on (0x9) with velocity > 0
           if (command === 9 && data2 > 0) {
-            this.midiNoteOn(data1, data2);
+            this.midiNoteOn(data1, data2, channel);
           }
           // Note off (0x8) or note on with velocity 0
           else if (command === 8 || (command === 9 && data2 === 0)) {
-            this.midiNoteOff(data1);
+            this.midiNoteOff(data1, channel);
           }
           // Control change (0xB)
           else if (command === 11) {
-            this.handleMIDICC(data1, data2);
+            this.handleMIDICC(data1, data2, channel);
           }
         },
 
-        handleMIDICC(cc, value) {
+        handleMIDICC(cc, value, channel = 0) {
           // Sustain pedal (CC 64)
           if (cc === 64) {
-            const wasPressed = this.sustainPedal;
-            this.sustainPedal = value >= 64;
-            // Pedal released - stop all sustained notes
-            if (wasPressed && !this.sustainPedal) {
-              this.releaseSustainedNotes();
+            const wasPressed = this.sustainPedal[channel];
+            this.sustainPedal[channel] = value >= 64;
+            if (wasPressed && !this.sustainPedal[channel]) {
+              this.releaseSustainedNotes(channel);
             }
           }
           // Sostenuto pedal (CC 66)
           else if (cc === 66) {
-            const wasPressed = this.sostenutoPedal;
-            this.sostenutoPedal = value >= 64;
-            if (!wasPressed && this.sostenutoPedal) {
-              // Pedal pressed - capture currently playing notes
-              Object.keys(this.midiNotes).forEach((note) => {
-                this.sostenutoNotes[note] = true; // Mark note as sostenuto-captured
+            const wasPressed = this.sostenutoPedal[channel];
+            this.sostenutoPedal[channel] = value >= 64;
+            if (!wasPressed && this.sostenutoPedal[channel]) {
+              const prefix = `${channel}_`;
+              Object.keys(this.midiNotes).forEach((key) => {
+                if (key.startsWith(prefix)) {
+                  this.sostenutoNotes[key] = true;
+                }
               });
-            } else if (wasPressed && !this.sostenutoPedal) {
-              // Pedal released - stop sostenuto-sustained notes
-              this.releaseSostenutoNotes();
+            } else if (wasPressed && !this.sostenutoPedal[channel]) {
+              this.releaseSostenutoNotes(channel);
             }
           }
           // Soft pedal / Una corda (CC 67)
           else if (cc === 67) {
-            this.softPedal = value >= 64;
+            this.softPedal[channel] = value >= 64;
           }
         },
 
-        midiNoteOn(note, velocity) {
-          // If note is sustained, release it first
-          if (this.sustainedNotes[note]) {
-            Z.noteOff(this.sustainedNotes[note]);
-            delete this.sustainedNotes[note];
-            delete this.sostenutoNotes[note];
+        midiNoteOn(note, velocity, channel = 0) {
+          const key = `${channel}_${note}`;
+          // If note is sustained on this channel, release it first
+          if (this.sustainedNotes[key]) {
+            Z.noteOff(this.sustainedNotes[key]);
+            delete this.sustainedNotes[key];
+            delete this.sostenutoNotes[key];
           }
-          if (this.midiNotes[note]) return; // Already playing
+          if (this.midiNotes[key]) return; // Already playing on this channel
           if (!Z.ctx) Z.init();
-          // Resume audio context if suspended (browser autoplay policy)
           if (Z.ctx.state === "suspended") {
             Z.ctx.resume();
           }
           Z.warmUp();
-          let gain = (velocity / 127) * this.volume;
-          // Apply soft pedal - reduce volume
-          if (this.softPedal) {
+          // Resolve channel instrument (fallback to channel 0)
+          const channelData = this.getChannelForMidi(channel);
+          let gain = (velocity / 127) * channelData.volume;
+          if (this.softPedal[channel]) {
             gain *= this.softPedalAmount;
           }
           // MIDI note 60 = middle C, our note 0 = middle C
-          // Apply octave offset from UI
-          const octave = parseInt(document.getElementById("octaveSelect").value);
-          const adjustedNote = note - 60 + (octave * 12);
-          const voiceId = Z.noteOn(adjustedNote, this.randInstrument, gain);
-          this.midiNotes[note] = voiceId;
+          const adjustedNote = note - 60 + (channelData.octave * 12);
+          const voiceId = Z.noteOn(adjustedNote, channelData.instrument, gain);
+          this.midiNotes[key] = voiceId;
+          this.setActivityLight(channel, "#28a745");  // Green for note-on
         },
 
-        midiNoteOff(note) {
-          const voiceId = this.midiNotes[note];
+        midiNoteOff(note, channel = 0) {
+          const key = `${channel}_${note}`;
+          const voiceId = this.midiNotes[key];
           if (voiceId) {
-            // Check if note should be sustained by either pedal
-            const sustainByDamper = this.sustainPedal;
-            const sustainBySostenuto = this.sostenutoPedal && this.sostenutoNotes[note];
+            const sustainByDamper = this.sustainPedal[channel];
+            const sustainBySostenuto = this.sostenutoPedal[channel] && this.sostenutoNotes[key];
 
             if (sustainByDamper || sustainBySostenuto) {
-              // Move to sustained notes instead of stopping
-              this.sustainedNotes[note] = voiceId;
+              this.sustainedNotes[key] = voiceId;
             } else {
               Z.noteOff(voiceId);
-              delete this.sostenutoNotes[note];
+              delete this.sostenutoNotes[key];
+              this.setActivityLight(channel, "#dc3545");  // Red for note-off
             }
-            delete this.midiNotes[note];
+            delete this.midiNotes[key];
           }
         },
 
-        releaseSustainedNotes() {
-          Object.keys(this.sustainedNotes).forEach((note) => {
-            // Only release if not held by sostenuto
-            if (!this.sostenutoNotes[note] || !this.sostenutoPedal) {
-              Z.noteOff(this.sustainedNotes[note]);
-              delete this.sustainedNotes[note];
+        releaseSustainedNotes(channel) {
+          const prefix = `${channel}_`;
+          let released = false;
+          Object.keys(this.sustainedNotes).forEach((key) => {
+            if (key.startsWith(prefix)) {
+              if (!this.sostenutoNotes[key] || !this.sostenutoPedal[channel]) {
+                Z.noteOff(this.sustainedNotes[key]);
+                delete this.sustainedNotes[key];
+                released = true;
+              }
+            }
+          });
+          if (released) this.setActivityLight(channel, "#dc3545");
+        },
+
+        releaseSostenutoNotes(channel) {
+          const prefix = `${channel}_`;
+          let released = false;
+          Object.keys(this.sostenutoNotes).forEach((key) => {
+            if (key.startsWith(prefix)) {
+              if (this.sustainedNotes[key] && !this.sustainPedal[channel]) {
+                Z.noteOff(this.sustainedNotes[key]);
+                delete this.sustainedNotes[key];
+                released = true;
+              }
+              delete this.sostenutoNotes[key];
+            }
+          });
+          if (released) this.setActivityLight(channel, "#dc3545");
+        },
+
+        // MIDI Channel management
+        getChannelLabel(seed) {
+          const type = Math.abs(seed) % 10;
+          return `${this.typeNames[type]} #${seed}`;
+        },
+
+        getChannelForMidi(ch) {
+          return this.channels[ch] || this.channels[this.activeChannel];
+        },
+
+        syncActiveChannel() {
+          this.channels[this.activeChannel] = {
+            seed: this.randInstrumentSeed,
+            octave: parseInt(document.getElementById("octaveSelect").value),
+            volume: this.volume,
+            instrument: this.randInstrument,
+            label: this.getChannelLabel(this.randInstrumentSeed)
+          };
+          this.saveChannels();
+          this.updateChannelDisplay();
+        },
+
+        initChannels() {
+          // Load persisted active channel
+          const savedCh = parseInt(localStorage.getItem("zynActiveChannel"));
+          if (!isNaN(savedCh) && savedCh >= 0 && savedCh < 16) {
+            this.activeChannel = savedCh;
+          }
+          // Initialize the active channel with current generator state
+          this.channels[this.activeChannel] = {
+            seed: this.randInstrumentSeed,
+            octave: parseInt(document.getElementById("octaveSelect").value),
+            volume: this.volume,
+            instrument: this.randInstrument,
+            label: this.getChannelLabel(this.randInstrumentSeed)
+          };
+          this.loadChannels();
+          this.createChannelInputs();
+          // Load persisted active channel data into the UI
+          if (this.channels[this.activeChannel]) {
+            this.loadChannelToUI(this.activeChannel);
+          }
+          this.updateChannelDisplay();
+        },
+
+        setActiveChannel(ch) {
+          if (ch === this.activeChannel) return;
+          // Sync current state to outgoing channel before switching
+          this.syncActiveChannel();
+          // If target channel is unassigned, assign it with current generator state
+          if (!this.channels[ch]) {
+            this.channels[ch] = {
+              seed: this.randInstrumentSeed,
+              octave: parseInt(document.getElementById("octaveSelect").value),
+              volume: this.volume,
+              instrument: Z.getInstrument(this.randInstrumentSeed),
+              label: this.getChannelLabel(this.randInstrumentSeed)
+            };
+          }
+          this.activeChannel = ch;
+          localStorage.setItem("zynActiveChannel", ch);
+          this.loadChannelToUI(ch);
+          this.saveChannels();
+          this.updateChannelDisplay();
+        },
+
+        loadChannelToUI(ch) {
+          const data = this.channels[ch];
+          if (!data) return;
+          this.randInstrumentSeed = data.seed;
+          this.randInstrument = data.instrument;
+          document.getElementById("instrumentSeedInput").value = data.seed;
+          document.getElementById("octaveSelect").value = data.octave;
+          this.volume = data.volume;
+          const pct = Math.round(data.volume * 100);
+          document.getElementById("mainVolume").value = pct;
+          document.getElementById("mainVolumeLabel").textContent = `Volume: ${pct}%`;
+          this.writeInstrumentToDiv();
+          this.activePresetIndex = null;
+        },
+
+        createChannelInputs() {
+          const container = document.getElementById("midiChannelsSection");
+          for (let ch = 0; ch < 16; ch++) {
+            const row = document.createElement("div");
+            row.style.cssText = "display: flex; align-items: center; gap: 6px; margin: 4px 0;";
+
+            const label = document.createElement("label");
+            label.style.cssText = "width: 80px; font-size: 13px; flex-shrink: 0;";
+            label.textContent = `Channel ${ch + 1}`;
+
+            // Activity light dot
+            const activityDot = document.createElement("span");
+            activityDot.id = `activityDot${ch}`;
+            activityDot.style.cssText = "display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: transparent; flex-shrink: 0;";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.id = `midiChannel${ch}`;
+            input.readOnly = true;
+            input.style.cssText = "flex: 1; padding: 4px; font-size: 12px; font-family: monospace; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 3px;";
+            input.placeholder = "Unassigned";
+
+            // Set Active button
+            const setActiveBtn = document.createElement("button");
+            setActiveBtn.id = `setActive${ch}`;
+            setActiveBtn.className = "set-active-btn";
+            setActiveBtn.textContent = "Set Active";
+            setActiveBtn.title = `Set channel ${ch + 1} as active`;
+            setActiveBtn.addEventListener("click", () => this.setActiveChannel(ch));
+
+            const clearBtn = document.createElement("button");
+            clearBtn.id = `clearChannel${ch}`;
+            clearBtn.textContent = "Clear";
+            clearBtn.style.cssText = "padding: 3px 6px; font-size: 11px; background-color: #dc3545; margin: 0;";
+            clearBtn.title = "Clear channel assignment";
+            clearBtn.addEventListener("click", () => this.clearChannel(ch));
+
+            row.appendChild(label);
+            row.appendChild(activityDot);
+            row.appendChild(input);
+            row.appendChild(setActiveBtn);
+            row.appendChild(clearBtn);
+            container.appendChild(row);
+          }
+        },
+
+        clearChannel(ch) {
+          if (ch === this.activeChannel) return;
+          this.releaseAllNotesOnChannel(ch);
+          this.channels[ch] = null;
+          this.saveChannels();
+          this.updateChannelDisplay();
+        },
+
+        releaseAllNotesOnChannel(ch) {
+          const prefix = `${ch}_`;
+          Object.keys(this.midiNotes).forEach((key) => {
+            if (key.startsWith(prefix)) {
+              Z.noteOff(this.midiNotes[key]);
+              delete this.midiNotes[key];
+            }
+          });
+          Object.keys(this.sustainedNotes).forEach((key) => {
+            if (key.startsWith(prefix)) {
+              Z.noteOff(this.sustainedNotes[key]);
+              delete this.sustainedNotes[key];
+            }
+          });
+          Object.keys(this.sostenutoNotes).forEach((key) => {
+            if (key.startsWith(prefix)) {
+              delete this.sostenutoNotes[key];
             }
           });
         },
 
-        releaseSostenutoNotes() {
-          Object.keys(this.sostenutoNotes).forEach((note) => {
-            // Release if in sustainedNotes and not held by sustain pedal
-            if (this.sustainedNotes[note] && !this.sustainPedal) {
-              Z.noteOff(this.sustainedNotes[note]);
-              delete this.sustainedNotes[note];
+        updateChannelDisplay() {
+          for (let ch = 0; ch < 16; ch++) {
+            const input = document.getElementById(`midiChannel${ch}`);
+            const channelData = this.channels[ch];
+            const isActive = ch === this.activeChannel;
+            if (input) {
+              if (isActive) {
+                input.value = this.getChannelLabel(this.randInstrumentSeed) + " (active)";
+              } else if (channelData) {
+                input.value = channelData.label + ` (oct:${channelData.octave >= 0 ? "+" : ""}${channelData.octave}, vol:${Math.round(channelData.volume * 100)}%)`;
+              } else {
+                input.value = "";
+              }
             }
-            delete this.sostenutoNotes[note];
+            // Update "Set Active" button
+            const setActiveBtn = document.getElementById(`setActive${ch}`);
+            if (setActiveBtn) {
+              setActiveBtn.disabled = isActive;
+              setActiveBtn.textContent = isActive ? "Active" : "Set Active";
+            }
+            const row = input?.parentElement;
+            if (row) {
+              row.style.borderLeft = isActive ? "3px solid #007bff" : "3px solid transparent";
+              row.style.paddingLeft = "5px";
+            }
+            const clearBtn = document.getElementById(`clearChannel${ch}`);
+            if (clearBtn) {
+              const disabled = isActive;
+              clearBtn.disabled = disabled;
+              clearBtn.style.opacity = disabled ? "0.4" : "1";
+              clearBtn.style.cursor = disabled ? "default" : "pointer";
+            }
+          }
+        },
+
+        saveChannels() {
+          const serialized = this.channels.map((ch) => {
+            if (!ch) return null;
+            return { seed: ch.seed, octave: ch.octave, volume: ch.volume };
           });
+          localStorage.setItem("zynMidiChannels", JSON.stringify(serialized));
+        },
+
+        loadChannels() {
+          try {
+            const stored = localStorage.getItem("zynMidiChannels");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed)) {
+                for (let i = 0; i < 16 && i < parsed.length; i++) {
+                  if (parsed[i] && typeof parsed[i].seed === "number") {
+                    this.channels[i] = {
+                      seed: parsed[i].seed,
+                      octave: parsed[i].octave || 0,
+                      volume: parsed[i].volume !== undefined ? parsed[i].volume : 1.0,
+                      instrument: Z.getInstrument(parsed[i].seed),
+                      label: this.getChannelLabel(parsed[i].seed)
+                    };
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        },
+
+        // Activity lights for MIDI channels
+        setActivityLight(channel, color) {
+          const dot = document.getElementById(`activityDot${channel}`);
+          if (!dot) return;
+          // Clear any existing timeout for this channel
+          if (this.activityTimeouts[channel]) {
+            clearTimeout(this.activityTimeouts[channel]);
+            delete this.activityTimeouts[channel];
+          }
+          // Set the color
+          dot.style.backgroundColor = color;
+          // If red (note-off), fade out after 150ms
+          if (color === "#dc3545") {
+            this.activityTimeouts[channel] = setTimeout(() => {
+              dot.style.backgroundColor = "transparent";
+              delete this.activityTimeouts[channel];
+            }, 150);
+          }
+        },
+
+        // Channel presets (save/load channel configurations)
+        loadChannelPresets() {
+          try {
+            const stored = localStorage.getItem("zynChannelPresets");
+            if (stored) {
+              this.channelPresets = JSON.parse(stored) || [];
+            }
+          } catch (e) {
+            this.channelPresets = [];
+          }
+        },
+
+        saveChannelPresets() {
+          localStorage.setItem("zynChannelPresets", JSON.stringify(this.channelPresets));
+        },
+
+        addChannelPreset(name) {
+          // Serialize all 16 channels + activeChannel index
+          const channelState = this.channels.map((ch) => {
+            if (!ch) return null;
+            return { seed: ch.seed, octave: ch.octave, volume: ch.volume };
+          });
+          this.channelPresets.push({
+            name,
+            channels: channelState,
+            activeChannel: this.activeChannel
+          });
+          this.saveChannelPresets();
+          this.renderChannelPresets();
+        },
+
+        loadChannelPreset(preset) {
+          // Restore all 16 channels
+          for (let i = 0; i < 16; i++) {
+            if (preset.channels[i] && typeof preset.channels[i].seed === "number") {
+              this.channels[i] = {
+                seed: preset.channels[i].seed,
+                octave: preset.channels[i].octave || 0,
+                volume: preset.channels[i].volume !== undefined ? preset.channels[i].volume : 1.0,
+                instrument: Z.getInstrument(preset.channels[i].seed),
+                label: this.getChannelLabel(preset.channels[i].seed)
+              };
+            } else {
+              this.channels[i] = null;
+            }
+          }
+          // Restore active channel
+          const targetChannel = preset.activeChannel !== undefined ? preset.activeChannel : 0;
+          this.activeChannel = targetChannel;
+          localStorage.setItem("zynActiveChannel", targetChannel);
+          // Update UI to match the active channel
+          if (this.channels[targetChannel]) {
+            this.loadChannelToUI(targetChannel);
+          }
+          this.saveChannels();
+          this.updateChannelDisplay();
+        },
+
+        deleteChannelPreset(index) {
+          this.channelPresets.splice(index, 1);
+          this.saveChannelPresets();
+          this.renderChannelPresets();
+        },
+
+        renameChannelPreset(index, newName) {
+          if (this.channelPresets[index]) {
+            this.channelPresets[index].name = newName;
+            this.saveChannelPresets();
+            this.renderChannelPresets();
+          }
+        },
+
+        renderChannelPresets() {
+          const container = document.getElementById("channelPresetsContainer");
+          if (!container) return;
+          container.innerHTML = "";
+          if (this.channelPresets.length === 0) {
+            container.innerHTML = '<div class="no-presets">No channel presets saved yet.</div>';
+            return;
+          }
+          // Simple list (no accordion grouping)
+          this.channelPresets.forEach((preset, index) => {
+            const item = document.createElement("div");
+            item.style.cssText = "display: flex; align-items: center; gap: 8px; padding: 8px; margin: 4px 0; background-color: #fff; border: 1px solid #dee2e6; border-radius: 4px;";
+
+            const name = document.createElement("span");
+            name.style.cssText = "flex: 1; cursor: pointer; font-weight: 500;";
+            name.textContent = preset.name;
+            name.title = "Click to load";
+            name.addEventListener("click", () => this.loadChannelPreset(preset));
+
+            const renameBtn = document.createElement("button");
+            renameBtn.className = "preset-btn rename";
+            renameBtn.textContent = "Rename";
+            renameBtn.addEventListener("click", () => {
+              const newName = prompt("Enter new name:", preset.name);
+              if (newName && newName.trim()) {
+                this.renameChannelPreset(index, newName.trim());
+              }
+            });
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "preset-btn delete";
+            deleteBtn.textContent = "Delete";
+            deleteBtn.addEventListener("click", () => {
+              if (confirm(`Delete channel preset "${preset.name}"?`)) {
+                this.deleteChannelPreset(index);
+              }
+            });
+
+            item.appendChild(name);
+            item.appendChild(renameBtn);
+            item.appendChild(deleteBtn);
+            container.appendChild(item);
+          });
+        },
+
+        exportChannelPresets() {
+          if (this.channelPresets.length === 0) {
+            alert("No channel presets to export");
+            return;
+          }
+          const data = JSON.stringify(this.channelPresets, null, 2);
+          const blob = new Blob([data], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "zyn-channel-presets.json";
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+
+        importChannelPresets(file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const imported = JSON.parse(e.target.result);
+              if (!Array.isArray(imported)) {
+                throw new Error("Invalid format");
+              }
+              let count = 0;
+              imported.forEach((preset) => {
+                if (preset.name && Array.isArray(preset.channels)) {
+                  this.channelPresets.push({
+                    name: preset.name,
+                    channels: preset.channels,
+                    activeChannel: preset.activeChannel !== undefined ? preset.activeChannel : 0
+                  });
+                  count++;
+                }
+              });
+              this.saveChannelPresets();
+              this.renderChannelPresets();
+              alert(`Imported ${count} channel preset(s)`);
+            } catch (err) {
+              alert("Failed to import: Invalid channel preset file");
+            }
+          };
+          reader.readAsText(file);
         },
 
         // Preset management
@@ -877,10 +1331,11 @@
         },
 
         updateInstrument(seed) {
-          if (!Z.ctx) Z.init();          
+          if (!Z.ctx) Z.init();
           this.randInstrumentSeed = seed;
           this.getInstrument(seed);
           this.writeInstrumentToDiv();
+          if (this.channels[this.activeChannel]) this.syncActiveChannel();
         },
 
         handleKeyPress(event) {
@@ -1010,10 +1465,19 @@
           // Clear MIDI notes and sustained notes
           this.midiNotes = {};
           this.sustainedNotes = {};
-          this.sustainPedal = false;
+          this.sustainPedal = {};
           this.sostenutoNotes = {};
-          this.sostenutoPedal = false;
-          this.softPedal = false;
+          this.sostenutoPedal = {};
+          this.softPedal = {};
+          // Clear all activity lights
+          for (let ch = 0; ch < 16; ch++) {
+            if (this.activityTimeouts[ch]) {
+              clearTimeout(this.activityTimeouts[ch]);
+            }
+            const dot = document.getElementById(`activityDot${ch}`);
+            if (dot) dot.style.backgroundColor = "transparent";
+          }
+          this.activityTimeouts = {};
         },
 
         updateInstrumentAndPushState(seed) {
@@ -1084,6 +1548,10 @@
               this.savePresets();
               this.renderPresetAccordion();
             }
+            if (this.channels[this.activeChannel]) this.syncActiveChannel();
+          });
+          document.getElementById("octaveSelect").addEventListener("change", () => {
+            if (this.channels[this.activeChannel]) this.syncActiveChannel();
           });
           document.getElementById("savePresetButton").addEventListener("click", this.handleSavePreset.bind(this));
           // Allow Enter key to save preset
@@ -1099,6 +1567,32 @@
             if (e.target.files.length > 0) {
               this.importPresets(e.target.files[0]);
               e.target.value = ""; // Reset so same file can be imported again
+            }
+          });
+          // Channel preset save
+          document.getElementById("saveChannelPresetButton").addEventListener("click", () => {
+            const nameInput = document.getElementById("channelPresetNameInput");
+            const name = nameInput.value.trim();
+            if (!name) {
+              alert("Please enter a channel preset name");
+              return;
+            }
+            this.addChannelPreset(name);
+            nameInput.value = "";
+          });
+          // Allow Enter key to save channel preset
+          document.getElementById("channelPresetNameInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") document.getElementById("saveChannelPresetButton").click();
+          });
+          // Export/Import channel presets
+          document.getElementById("exportChannelPresetsButton").addEventListener("click", this.exportChannelPresets.bind(this));
+          document.getElementById("importChannelPresetsButton").addEventListener("click", () => {
+            document.getElementById("importChannelFileInput").click();
+          });
+          document.getElementById("importChannelFileInput").addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+              this.importChannelPresets(e.target.files[0]);
+              e.target.value = "";
             }
           });
           // MIDI enable/disable buttons

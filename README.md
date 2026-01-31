@@ -31,6 +31,10 @@ Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=
 - Preset export/import as JSON files
 - Presets save octave and volume settings
 - MIDI enable/disable with status indicator (green = active, red = inactive) and remembered preference
+- 16-channel MIDI routing -- assign different instruments to each MIDI channel with independent octave and volume settings
+- Switchable active channel -- click "Set Active" on any channel to make it the target for keyboard input, instrument generation, and preset loads
+- Channel configuration presets -- save, load, export, and import entire 16-channel setups
+- Per-channel activity indicators -- green dot on note-on, red flash on note-off
 
 ## Quick Start
 
