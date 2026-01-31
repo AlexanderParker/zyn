@@ -1640,6 +1640,11 @@ const ZynDemo = {
         if (tabId === "recording") {
           this.updateRecordingTabState();
         }
+        // Redraw instrument visualizer when switching to instrument tab
+        // (ADSR canvases need layout dimensions to render)
+        if (tabId === "instrument") {
+          this.renderInstrumentVisualizer();
+        }
       });
     });
   },
