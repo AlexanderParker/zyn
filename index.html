@@ -103,22 +103,102 @@
       .notice strong {
         color: #e17055;
       }
-      .preset-list {
+      .preset-section {
+        margin-bottom: 20px;
+      }
+      .preset-accordion {
+        margin-top: 10px;
+      }
+      .preset-type-header {
+        background-color: #6c757d;
+        color: white;
+        cursor: pointer;
+        padding: 10px 15px;
+        width: 100%;
+        border: none;
+        text-align: left;
+        font-size: 14px;
+        margin-top: 2px;
+      }
+      .preset-type-header:hover,
+      .preset-type-header:focus {
+        background-color: #5a6268;
+      }
+      .preset-type-header.active {
+        background-color: #495057;
+      }
+      .preset-type-content {
+        display: none;
+        background-color: #f8f9fa;
+        padding: 10px;
+      }
+      .preset-item {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 8px;
+        margin: 4px 0;
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        gap: 6px;
+      }
+      .preset-item:hover {
+        background-color: #e9ecef;
+      }
+      .preset-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        margin-top: 4px;
+      }
+      .preset-controls label {
+        font-size: 11px;
+        color: #666;
+        margin: 0;
+      }
+      .preset-volume {
+        width: 80px;
+      }
+      .preset-name {
+        flex: 1;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .preset-seed {
+        color: #6c757d;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .preset-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        margin: 0;
+      }
+      .preset-btn.copy {
+        background-color: #17a2b8;
+      }
+      .preset-btn.rename {
+        background-color: #ffc107;
+        color: #000;
+      }
+      .preset-btn.delete {
+        background-color: #dc3545;
+      }
+      .save-preset-row {
+        display: flex;
+        gap: 8px;
         margin-bottom: 15px;
       }
-      .preset-list a {
-        display: inline-block;
-        margin-bottom: 10px;
-        margin-right: 10px;
-        padding: 5px 10px;
-        background-color: #f0f0f0;
-        border-radius: 3px;
-        text-decoration: none;
-        color: #333;
+      .save-preset-row input {
+        flex: 1;
+        padding: 8px;
       }
-      .preset-list a:hover,
-      .preset-list a:focus {
-        background-color: #e0e0e0;
+      .no-presets {
+        color: #6c757d;
+        font-style: italic;
+        padding: 10px;
       }
       .sr-only {
         position: absolute;
@@ -158,83 +238,121 @@
       .key.black.pressed {
         background-color: #444;
       }
+      .type-radio {
+        display: inline-block;
+        margin: 4px 8px 4px 0;
+        cursor: pointer;
+      }
+      .type-radio input {
+        margin-right: 3px;
+      }
+      #stopAllButton:hover,
+      #stopAllButton:focus {
+        background-color: #c0392b;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <header>
         <h1>Zyn Demo</h1>
+        <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+          <button id="enableMidiButton" style="background-color: #6c757d;">Enable MIDI</button>
+          <span id="midiStatusWrapper" style="display: none; align-items: center; gap: 6px; border: 2px solid #28a745; border-radius: 4px; padding: 4px 10px; font-size: 13px;">
+            <span id="midiDot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #28a745;"></span>
+            <span>MIDI: <span id="midiStatus"></span></span>
+            <button id="disableMidiButton" style="background-color: #dc3545; padding: 2px 8px; font-size: 11px; margin: 0 0 0 6px;">Disable</button>
+          </span>
+        </div>
       </header>
       <main>
         <p>Welcome to the Zyn Demo!</p>
         <p>
-          Zyn is a small JS audio synthesizer which clocks in at around 5.64kb (~2.4kb zipped). You can read all about it on GitHub
+          Zyn is a small JS audio synthesizer which clocks in at around 8.8kb (~3.2kb gzipped). You can read all about it on GitHub
           <a href="https://github.com/AlexanderParker/zyn">here</a>.
         </p>
         <p>
-          This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard (QWERTY keys) to play notes and
-          experiment with different instrument seeds.
+          This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard, MIDI controller, or the on-screen piano
+          to play notes and experiment with different instrument seeds. There are 10 instrument types (pad, lead, bass, key, pluck, bell, string, drum, perc, fx)
+          determined by the last digit of the seed.
         </p>
-        <h2>How to use:</h2>
-        <ul>
-          <li>Use the QWERTY keys on your keyboard to play notes (Q is middle C)</li>
-          <li>Change the octave using the dropdown or Page Up/Down keys</li>
-          <li>Modify the instrument seed manually or click "Random Instrument"</li>
-          <li>Use + and - keys to cycle through instrument seeds</li>
-        </ul>
+        <button type="button" class="collapsible" aria-expanded="false" aria-controls="howToUseContent">How to use</button>
+        <div id="howToUseContent" class="content" aria-hidden="true">
+          <ul>
+            <li><strong>Play notes:</strong> Use QWERTY keys on your keyboard (Q is middle C), click the on-screen piano, or connect a MIDI controller</li>
+            <li><strong>Change octave:</strong> Use the dropdown or Page Up/Down keys (also applies to MIDI input)</li>
+            <li><strong>Adjust volume:</strong> Use the volume slider (0-500%) to control output level</li>
+            <li><strong>Generate instruments:</strong> Select a type and click "Generate Random", or enter a seed number directly</li>
+            <li><strong>Browse seeds:</strong> Use + and - keys to cycle through instrument seeds</li>
+            <li><strong>Stop sound:</strong> Press Escape or click "Stop All"</li>
+            <li><strong>Save presets:</strong> Enter a name and click "Save Current" to save instruments you like</li>
+            <li><strong>Manage presets:</strong> Presets save octave and volume settings, and can be edited in-place</li>
+            <li><strong>Export/Import:</strong> Back up your presets to a JSON file or share them with others</li>
+            <li><strong>MIDI support:</strong> Click "Enable MIDI" to use a connected MIDI keyboard with velocity sensitivity and pedal support (sustain, sostenuto, soft)</li>
+          </ul>
+        </div>
         <div class="notice" role="alert">
           <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh. Please listen at a safe and comfortable volume to
           protect your hearing and enjoy the experience.
         </div>
-        <h2>Instrument Selector</h2>
+        <h2>Keyboard</h2>
         <div class="editor">
-          <div class="preset-list" role="group" aria-label="Instrument presets">
-            <strong id="preset-label">Presets:</strong>
-            <a href="?instrumentSeed=2550542884" aria-labelledby="preset-label">Cavern Drips</a>
-            <a href="?instrumentSeed=780366392" aria-labelledby="preset-label">Nice Pluck</a>
-            <a href="?instrumentSeed=1886683946" aria-labelledby="preset-label">Piff</a>
-            <a href="?instrumentSeed=1190652164" aria-labelledby="preset-label">Bubble</a>
-            <a href="?instrumentSeed=1926572373" aria-labelledby="preset-label">Quock</a>
-            <a href="?instrumentSeed=1274513689" aria-labelledby="preset-label">BandSaw</a>
-            <a href="?instrumentSeed=2188131601" aria-labelledby="preset-label">Little Saw</a>
-            <a href="?instrumentSeed=4044828069" aria-labelledby="preset-label">Phat Boy</a>
-            <a href="?instrumentSeed=2220436593" aria-labelledby="preset-label">Boop</a>
-            <a href="?instrumentSeed=3252127078" aria-labelledby="preset-label">Zong</a>
-            <a href="?instrumentSeed=1762204959" aria-labelledby="preset-label">Flyby</a>
-            <a href="?instrumentSeed=954764011" aria-labelledby="preset-label">Wow!</a>
-            <a href="?instrumentSeed=145437930" aria-labelledby="preset-label">Snare</a>
-            <a href="?instrumentSeed=2887395281" aria-labelledby="preset-label">Stab bass</a>
-            <a href="?instrumentSeed=1511333983" aria-labelledby="preset-label">Woof</a>
-            <a href="?instrumentSeed=2882963148" aria-labelledby="preset-label">Slap</a>
-            <a href="?instrumentSeed=789752148" aria-labelledby="preset-label">Snare2</a>
-            <a href="?instrumentSeed=4108768165" aria-labelledby="preset-label">Bass touch</a>
-            <a href="?instrumentSeed=2180840688" aria-labelledby="preset-label">Echo bell</a>
-            <a href="?instrumentSeed=1579750160" aria-labelledby="preset-label">Sticky bass</a>
-            <a href="?instrumentSeed=2954907572" aria-labelledby="preset-label">Abduction</a>
-            <a href="?instrumentSeed=3827537414" aria-labelledby="preset-label">Snap</a>
-            <a href="?instrumentSeed=666" aria-labelledby="preset-label">Devilish</a>
-            <a href="?instrumentSeed=69420" aria-labelledby="preset-label">MeMe</a>
-            <a href="?instrumentSeed=1663351049" aria-labelledby="preset-label">Bright</a>
+          <div class="piano" id="pianoKeyboard"></div>
+          <div style="margin-top: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <span>
+              <label for="octaveSelect">Octave</label>
+              <select id="octaveSelect">
+                <option value="-3">-3</option>
+                <option value="-2">-2</option>
+                <option value="-1">-1</option>
+                <option value="0" selected>0</option>
+                <option value="1">+1</option>
+                <option value="2">+2</option>
+                <option value="3">+3</option>
+              </select>
+            </span>
+            <span style="display: flex; align-items: center; gap: 5px;">
+              <label for="mainVolume" id="mainVolumeLabel">Volume: 100%</label>
+              <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 120px;" />
+            </span>
+            <button id="stopAllButton" style="background-color: #e74c3c;">Stop All</button>
           </div>
-          <div>
-            <label for="octaveSelect">Octave</label>
-            <select id="octaveSelect">
-              <option value="-3">-3</option>
-              <option value="-2">-2</option>
-              <option value="-1">-1</option>
-              <option value="0" selected>0</option>
-              <option value="1">+1</option>
-              <option value="2">+2</option>
-              <option value="3">+3</option>
-            </select>
-          </div>
+          <h2>Instrument Generator</h2>
           <div>
             <label for="instrumentSeedInput">Instrument Seed</label>
             <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" />
             <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
-            <button id="randomInstrumentButton">Random Instrument</button>
           </div>
-          <div class="piano" id="pianoKeyboard"></div>
+          <div id="typeRadios" style="margin: 10px 0;">
+            <strong>Type:</strong><br/>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="any" checked /> Any</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="0" /> Pad (0)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="1" /> Lead (1)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="2" /> Bass (2)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="3" /> Key (3)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="4" /> Pluck (4)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="5" /> Bell (5)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="6" /> String (6)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="7" /> Drum (7)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="8" /> Perc (8)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX (9)</label>
+          </div>
+          <div>
+            <button id="randomInstrumentButton">Generate Random</button>
+          </div>
+          <h2>Saved Presets</h2>
+          <div class="preset-section">
+            <div class="save-preset-row">
+              <input type="text" id="presetNameInput" placeholder="Enter preset name..." />
+              <button id="savePresetButton">Save Current</button>
+            </div>
+            <div id="presetAccordion" class="preset-accordion"></div>
+            <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;">
+              <button id="exportPresetsButton" style="background-color: #6c757d;">Export Presets</button>
+              <button id="importPresetsButton" style="background-color: #6c757d;">Import Presets</button>
+              <input type="file" id="importFileInput" accept=".json" style="display: none;" />
+            </div>
+          </div>
           <h2>Instrument Structure</h2>
           <p>
             Expand the section below if you want to see how an instrument is represented internally. If you wanted to, you could create your own instruments for
@@ -255,17 +373,502 @@
     </div>
 
     <script>
+      const DEFAULT_PRESETS = [{"name":"Chime","seed":478693073,"type":3,"volume":3.02},{"name":"Brushed Cymbal","seed":4231611057,"type":7,"volume":3.38},{"name":"Distant Steel Drum","seed":647414438,"type":8,"volume":3.28},{"name":"Low Tuba","seed":3508761276,"type":6,"volume":5,"octave":1},{"name":"Metal Block","seed":1006061878,"type":8,"volume":2.91},{"name":"Distant Pan Flute","seed":3073154778,"type":8,"volume":5},{"name":"Plink","seed":791989228,"type":8,"volume":2.6},{"name":"Organish","seed":3577246970,"type":0,"volume":2.18,"octave":1},{"name":"Slow Saw","seed":2903551290,"type":0,"octave":0,"volume":4.27},{"name":"Machine Room","seed":1899734110,"type":0,"volume":2.91},{"name":"Forest","seed":3703184240,"type":0,"octave":3,"volume":4.53},{"name":"Icy Surface","seed":177070610,"type":0,"octave":3,"volume":2.44},{"name":"Reesey","seed":2802378710,"type":0,"octave":1,"volume":4.79},{"name":"Bright","seed":2471452471,"type":1,"octave":2,"volume":5},{"name":"Fluteish","seed":4185492621,"type":1,"octave":0,"volume":1.51},{"name":"Sticky","seed":1997576022,"type":2,"octave":1,"volume":1.92},{"name":"Space Bounce","seed":1312145262,"type":2,"octave":0,"volume":3.49},{"name":"Torn","seed":4157822792,"type":2,"octave":0,"volume":4.06},{"name":"Riser FX","seed":999169202,"type":2,"octave":-2,"volume":3.49},{"name":"Tooba","seed":3207311602,"type":2,"octave":0,"volume":5},{"name":"Low Pulse","seed":4119084792,"type":2,"octave":0,"volume":3.23},{"name":"Burrr","seed":1946705502,"type":2,"octave":1,"volume":1.71},{"name":"Mysterious Flute","seed":125033892,"type":2,"octave":1,"volume":4.48},{"name":"Growl","seed":1475503702,"type":2,"octave":2,"volume":2.18},{"name":"Something Atmospheric","seed":1621326803,"type":3,"octave":1,"volume":5},{"name":"Bottle","seed":1205717743,"type":3,"octave":3,"volume":3.49},{"name":"Airy","seed":2975351643,"type":3,"octave":1,"volume":3.64},{"name":"Metal Screeching","seed":1290867423,"type":3,"octave":3},{"name":"Happy Note","seed":834173283,"type":3,"octave":2,"volume":3.02},{"name":"Bowed Windchime","seed":3899372973,"type":3,"octave":2,"volume":3.54},{"name":"Bouncing Lead","seed":439588263,"type":3,"octave":2,"volume":3.17},{"name":"Vibrant","seed":3456065433,"type":3,"octave":2,"volume":1.77},{"name":"BrAssy","seed":1903295973,"type":3,"octave":0,"volume":1.66},{"name":"Frog Cave","seed":974930234,"type":4,"octave":1,"volume":2.5},{"name":"Chirp!","seed":1596900054,"type":4,"octave":1,"volume":1.71},{"name":"Simple Saw","seed":487383414,"type":4,"octave":1,"volume":2.34},{"name":"Echo Plink","seed":1880275504,"type":4,"octave":1,"volume":2.5},{"name":"Moody Pad","seed":3249553214,"type":4,"octave":1,"volume":5},{"name":"Woof","seed":1494359974,"type":4,"octave":1,"volume":2.18},{"name":"Distant Alarm FX","seed":258062945,"type":5,"octave":1,"volume":3.12},{"name":"Jingle Pop","seed":11692995,"type":5,"octave":3,"volume":2.6},{"name":"Xylophobe","seed":146036665,"type":5,"octave":2,"volume":3.33},{"name":"Slowbell","seed":2775190395,"type":5,"octave":1,"volume":3.43},{"name":"Spooky Bell","seed":220428035,"type":5,"octave":1,"volume":1.61},{"name":"Slide Bell","seed":3298940435,"type":5,"octave":1,"volume":1.56},{"name":"Whisper","seed":2416549245,"type":5,"octave":1,"volume":3.02},{"name":"Soft","seed":2275909786,"type":6,"octave":3,"volume":3.17},{"name":"Cosmic Scenery","seed":3820606356,"type":6,"octave":1,"volume":3.17},{"name":"Hollow","seed":1311445996,"type":6,"octave":1,"volume":2.34},{"name":"Tunnel Tunes","seed":1672631246,"type":6,"octave":1,"volume":2.08},{"name":"Clean Saw","seed":3503739726,"type":6,"octave":1,"volume":2.7},{"name":"Another Bell Thing","seed":2191083686,"type":6,"octave":2,"volume":2.76},{"name":"A bit brassy","seed":3465917626,"type":6,"octave":1,"volume":3.17},{"name":"Faint block of wood","seed":3860572117,"type":7,"octave":2,"volume":5},{"name":"Brushy","seed":4044206767,"type":7,"octave":0,"volume":3.54},{"name":"Blocky block","seed":793333747,"type":7,"octave":2,"volume":1.71},{"name":"Wibble","seed":1804795437,"type":7,"octave":2,"volume":2.86},{"name":"Trash hat","seed":1812995347,"type":7,"octave":2,"volume":2.29},{"name":"Blip Kick","seed":1671058337,"type":7,"octave":2,"volume":4.21},{"name":"Blop","seed":1582893757,"type":7,"octave":1,"volume":4.21},{"name":"Tick","seed":4030513007,"type":7,"octave":1,"volume":1.98},{"name":"Low brush","seed":168631047,"type":7,"octave":1,"volume":4.79},{"name":"Echoey blocks","seed":2410507547,"type":7,"octave":2,"volume":2.55},{"name":"Hitty hat","seed":1224382097,"type":7,"octave":2,"volume":2.13},{"name":"Pop","seed":3523971957,"type":7,"octave":1,"volume":1.1},{"name":"Echo Keys","seed":62672728,"type":8,"octave":1,"volume":2.86},{"name":"Chopsticks in space","seed":3591657978,"type":8,"octave":1,"volume":4.63},{"name":"Zip","seed":3646906478,"type":8,"octave":1,"volume":3.02},{"name":"Quack Lead","seed":3216176018,"type":8,"octave":1,"volume":2.29},{"name":"Bell Pad","seed":4209125248,"type":8,"octave":1,"volume":4.28},{"name":"Bell Bass","seed":1194888198,"type":8,"octave":2,"volume":4.42},{"name":"Tinkerbells","seed":3511194118,"type":8,"octave":1,"volume":2.13},{"name":"Spider Bell","seed":3517159268,"type":8,"octave":1,"volume":3.8},{"name":"Space Theme","seed":2770483119,"type":9,"octave":1,"volume":3.28},{"name":"Venting","seed":1188631729,"type":9,"octave":0,"volume":2.03},{"name":"Wobbler","seed":1269970899,"type":9,"octave":-1,"volume":3.69},{"name":"Sky Whales","seed":2452561269,"type":9,"octave":2,"volume":4.42},{"name":"Ringing Alarm","seed":3828508999,"type":9,"octave":2,"volume":2.91},{"name":"Spray","seed":2337955819,"type":9,"octave":2,"volume":3.12},{"name":"Panic","seed":413693269,"type":9,"octave":-2,"volume":2.6},{"name":"Wonky Radio","seed":12797009,"type":9,"octave":0},{"name":"Graveyard Shift","seed":4225477799,"type":9,"octave":0,"volume":3.17},{"name":"Alien Invasion","seed":1642584029,"type":9,"octave":-1},{"name":"Nee naw :(","seed":323807379,"type":9,"octave":0,"volume":2.55},{"name":"Fanfare","seed":888821021,"type":1,"octave":2,"volume":4.68},{"name":"Clicky Bass","seed":1867196894,"type":4,"octave":0,"volume":1.6},{"name":"Echo bass","seed":274188674,"type":4,"octave":-1,"volume":3.1},{"name":"High Strung","seed":509434356,"type":6,"octave":3,"volume":4.17},{"name":"Sub Thing","seed":2765367605,"type":5,"octave":0,"volume":4.71},{"name":"Blimp","seed":3818465904,"type":4,"octave":0,"volume":1},{"name":"Chip","seed":909507278,"type":8,"octave":0,"volume":1},{"name":"Broken Clock","seed":351396565,"type":5,"octave":2,"volume":1},{"name":"Crystals","seed":3642840588,"type":8,"octave":1,"volume":2.44},{"name":"Yonder Glade","seed":972077410,"type":0,"octave":3,"volume":1},{"name":"Sewer Pipes","seed":3656672588,"type":8,"octave":2,"volume":2.85},{"name":"Hi hat","seed":2218903937,"type":7,"octave":0,"volume":4.01},{"name":"Victory","seed":259410201,"type":1,"octave":0,"volume":4.87},{"name":"Rolling","seed":4021332303,"type":3,"octave":-1,"volume":2.6},{"name":"Deep hit","seed":1611221502,"type":2,"octave":-1,"volume":3.65},{"name":"Zombie Playground","seed":1098400960,"type":0,"octave":1,"volume":1},{"name":"Dull Thud","seed":3574705757,"type":7,"octave":-2,"volume":4.23},{"name":"Dirty CPU","seed":180069256,"type":6,"octave":2,"volume":1.67},{"name":"Jump","seed":3095350768,"type":8,"octave":2,"volume":1},{"name":"Layers","seed":3185116091,"type":1,"octave":-1,"volume":2.37},{"name":"Space Organ","seed":3691103581,"type":1,"octave":1,"volume":3.17},{"name":"The Deep","seed":1899475861,"type":1,"octave":0,"volume":1.96},{"name":"Basic","seed":185045751,"type":1,"octave":0,"volume":1.83},{"name":"Tangy","seed":2360196101,"type":1,"octave":0,"volume":1},{"name":"Pretty","seed":3140249671,"type":1,"octave":3,"volume":2.76},{"name":"Hollow Streets","seed":1455000701,"type":1,"octave":2,"volume":4.39},{"name":"Sawn Again","seed":3055857821,"type":1,"octave":1,"volume":2.08},{"name":"Phased BASS","seed":3648134941,"type":1,"octave":-2,"volume":1},{"name":"Haunting","seed":2126128071,"type":1,"octave":0,"volume":1},{"name":"Wah Wah","seed":3423244941,"type":1,"octave":2,"volume":2.12},{"name":"Burnt Reeses","seed":3165769041,"type":1,"octave":-2,"volume":1}];
+
       const ZynDemo = {
         randInstrumentSeed: 0,
         randInstrument: {},
-        pressedKeys: {},
+        activePresetIndex: null, // Index of currently loaded preset, null if manual
+        volume: 1.0,            // Volume 0-5 (synced between keyboard slider and preset)
+        activeNotes: {},  // Track active voiceIds by note number
+        midiNotes: {},    // Track MIDI note voiceIds
+        sustainPedal: false,  // Sustain pedal state
+        sustainedNotes: {},   // Notes held by sustain pedal
+        sostenutoPedal: false,  // Sostenuto pedal state
+        sostenutoNotes: {},     // Notes held by sostenuto pedal
+        softPedal: false,       // Soft pedal state (una corda)
+        softPedalAmount: 0.5,   // Volume multiplier when soft pedal is pressed
+        presets: [],      // User presets from localStorage
+        typeNames: ["Pad", "Lead", "Bass", "Key", "Pluck", "Bell", "String", "Drum", "Perc", "FX"],
 
         init() {
           if (!Z.ctx) Z.init();
+          this.loadPresets();
           this.attachEventListeners();
           this.loadStateAndUpdateInstrument();
           this.setupCollapsible();
           this.createPianoKeyboard();
+          this.renderPresetAccordion();
+          // Auto-enable MIDI if previously enabled
+          if (localStorage.getItem("zynMidiEnabled") === "true") {
+            this.initMIDI();
+          }
+          // Warm up audio on first user interaction to eliminate delay
+          const warmUpOnce = () => {
+            Z.warmUp();
+            document.removeEventListener("click", warmUpOnce);
+            document.removeEventListener("keydown", warmUpOnce);
+          };
+          document.addEventListener("click", warmUpOnce);
+          document.addEventListener("keydown", warmUpOnce);
+        },
+
+        // MIDI Support
+        initMIDI() {
+          document.getElementById("enableMidiButton").style.display = "none";
+          document.getElementById("midiStatusWrapper").style.display = "inline-flex";
+          localStorage.setItem("zynMidiEnabled", "true");
+          this.midiEnabled = true;
+          this.updateMIDIStatus("Checking...", false);
+          if (!navigator.requestMIDIAccess) {
+            this.updateMIDIStatus("Not supported (use Chrome/Edge)", false);
+            return;
+          }
+          navigator.requestMIDIAccess({ sysex: false }).then(
+            (midiAccess) => {
+              this.midiAccess = midiAccess;
+              this.connectMIDIInputs();
+              midiAccess.onstatechange = () => this.connectMIDIInputs();
+            },
+            (err) => {
+              console.log("MIDI access denied:", err);
+              this.updateMIDIStatus("Access denied", false);
+            }
+          );
+        },
+
+        disableMIDI() {
+          this.midiEnabled = false;
+          localStorage.setItem("zynMidiEnabled", "false");
+          // Disconnect MIDI inputs
+          if (this.midiAccess) {
+            for (const input of this.midiAccess.inputs.values()) {
+              input.onmidimessage = null;
+            }
+            this.midiAccess.onstatechange = null;
+            this.midiAccess = null;
+          }
+          // Release any held MIDI notes
+          Object.keys(this.midiNotes).forEach((note) => {
+            Z.noteOff(this.midiNotes[note]);
+          });
+          this.midiNotes = {};
+          Object.keys(this.sustainedNotes).forEach((note) => {
+            Z.noteOff(this.sustainedNotes[note]);
+          });
+          this.sustainedNotes = {};
+          this.sostenutoNotes = {};
+          this.sustainPedal = false;
+          this.sostenutoPedal = false;
+          this.softPedal = false;
+          // Show enable button, hide status
+          document.getElementById("enableMidiButton").style.display = "";
+          document.getElementById("midiStatusWrapper").style.display = "none";
+        },
+
+        connectMIDIInputs() {
+          const inputs = Array.from(this.midiAccess.inputs.values());
+          if (inputs.length === 0) {
+            this.updateMIDIStatus("No devices", false);
+            return;
+          }
+          let connectedNames = [];
+          for (const input of inputs) {
+            input.onmidimessage = (msg) => this.handleMIDIMessage(msg);
+            if (input.state === "connected") {
+              connectedNames.push(input.name);
+            }
+          }
+          const hasDevices = connectedNames.length > 0;
+          this.updateMIDIStatus(hasDevices ? connectedNames.join(", ") : "No devices", hasDevices);
+        },
+
+        updateMIDIStatus(status, active) {
+          const el = document.getElementById("midiStatus");
+          if (el) el.textContent = status;
+          const color = active ? "#28a745" : "#dc3545";
+          document.getElementById("midiDot").style.backgroundColor = color;
+          document.getElementById("midiStatusWrapper").style.borderColor = color;
+        },
+
+        handleMIDIMessage(msg) {
+          const [status, data1, data2] = msg.data;
+          const command = status >> 4;
+          // Note on (0x9) with velocity > 0
+          if (command === 9 && data2 > 0) {
+            this.midiNoteOn(data1, data2);
+          }
+          // Note off (0x8) or note on with velocity 0
+          else if (command === 8 || (command === 9 && data2 === 0)) {
+            this.midiNoteOff(data1);
+          }
+          // Control change (0xB)
+          else if (command === 11) {
+            this.handleMIDICC(data1, data2);
+          }
+        },
+
+        handleMIDICC(cc, value) {
+          // Sustain pedal (CC 64)
+          if (cc === 64) {
+            const wasPressed = this.sustainPedal;
+            this.sustainPedal = value >= 64;
+            // Pedal released - stop all sustained notes
+            if (wasPressed && !this.sustainPedal) {
+              this.releaseSustainedNotes();
+            }
+          }
+          // Sostenuto pedal (CC 66)
+          else if (cc === 66) {
+            const wasPressed = this.sostenutoPedal;
+            this.sostenutoPedal = value >= 64;
+            if (!wasPressed && this.sostenutoPedal) {
+              // Pedal pressed - capture currently playing notes
+              Object.keys(this.midiNotes).forEach((note) => {
+                this.sostenutoNotes[note] = true; // Mark note as sostenuto-captured
+              });
+            } else if (wasPressed && !this.sostenutoPedal) {
+              // Pedal released - stop sostenuto-sustained notes
+              this.releaseSostenutoNotes();
+            }
+          }
+          // Soft pedal / Una corda (CC 67)
+          else if (cc === 67) {
+            this.softPedal = value >= 64;
+          }
+        },
+
+        midiNoteOn(note, velocity) {
+          // If note is sustained, release it first
+          if (this.sustainedNotes[note]) {
+            Z.noteOff(this.sustainedNotes[note]);
+            delete this.sustainedNotes[note];
+            delete this.sostenutoNotes[note];
+          }
+          if (this.midiNotes[note]) return; // Already playing
+          if (!Z.ctx) Z.init();
+          // Resume audio context if suspended (browser autoplay policy)
+          if (Z.ctx.state === "suspended") {
+            Z.ctx.resume();
+          }
+          Z.warmUp();
+          let gain = (velocity / 127) * this.volume;
+          // Apply soft pedal - reduce volume
+          if (this.softPedal) {
+            gain *= this.softPedalAmount;
+          }
+          // MIDI note 60 = middle C, our note 0 = middle C
+          // Apply octave offset from UI
+          const octave = parseInt(document.getElementById("octaveSelect").value);
+          const adjustedNote = note - 60 + (octave * 12);
+          const voiceId = Z.noteOn(adjustedNote, this.randInstrument, gain);
+          this.midiNotes[note] = voiceId;
+        },
+
+        midiNoteOff(note) {
+          const voiceId = this.midiNotes[note];
+          if (voiceId) {
+            // Check if note should be sustained by either pedal
+            const sustainByDamper = this.sustainPedal;
+            const sustainBySostenuto = this.sostenutoPedal && this.sostenutoNotes[note];
+
+            if (sustainByDamper || sustainBySostenuto) {
+              // Move to sustained notes instead of stopping
+              this.sustainedNotes[note] = voiceId;
+            } else {
+              Z.noteOff(voiceId);
+              delete this.sostenutoNotes[note];
+            }
+            delete this.midiNotes[note];
+          }
+        },
+
+        releaseSustainedNotes() {
+          Object.keys(this.sustainedNotes).forEach((note) => {
+            // Only release if not held by sostenuto
+            if (!this.sostenutoNotes[note] || !this.sostenutoPedal) {
+              Z.noteOff(this.sustainedNotes[note]);
+              delete this.sustainedNotes[note];
+            }
+          });
+        },
+
+        releaseSostenutoNotes() {
+          Object.keys(this.sostenutoNotes).forEach((note) => {
+            // Release if in sustainedNotes and not held by sustain pedal
+            if (this.sustainedNotes[note] && !this.sustainPedal) {
+              Z.noteOff(this.sustainedNotes[note]);
+              delete this.sustainedNotes[note];
+            }
+            delete this.sostenutoNotes[note];
+          });
+        },
+
+        // Preset management
+        loadPresets() {
+          try {
+            const stored = localStorage.getItem("zynPresets");
+            if (stored === null) {
+              // First load - populate with default presets
+              this.presets = DEFAULT_PRESETS.map(p => ({ ...p }));
+              this.savePresets();
+            } else {
+              this.presets = JSON.parse(stored) || [];
+            }
+          } catch (e) {
+            this.presets = [];
+          }
+        },
+
+        savePresets() {
+          localStorage.setItem("zynPresets", JSON.stringify(this.presets));
+        },
+
+        addPreset(name, seed) {
+          const type = Math.abs(seed) % 10;
+          const octave = parseInt(document.getElementById("octaveSelect").value);
+          const volume = this.volume;
+          this.presets.push({ name, seed, type, octave, volume });
+          this.savePresets();
+          this.renderPresetAccordion();
+        },
+
+        renamePreset(index, newName) {
+          if (this.presets[index]) {
+            this.presets[index].name = newName;
+            this.savePresets();
+            this.renderPresetAccordion();
+          }
+        },
+
+        updatePresetOctave(index, octave) {
+          if (this.presets[index]) {
+            this.presets[index].octave = octave;
+            this.savePresets();
+            if (this.activePresetIndex === index) {
+              document.getElementById("octaveSelect").value = octave;
+            }
+          }
+        },
+
+        updatePresetVolume(index, volume) {
+          if (this.presets[index]) {
+            this.presets[index].volume = volume;
+            this.savePresets();
+            if (this.activePresetIndex === index) {
+              this.setVolume(volume);
+            }
+          }
+        },
+
+        setVolume(vol) {
+          this.volume = vol;
+          const pct = Math.round(vol * 100);
+          document.getElementById("mainVolume").value = pct;
+          document.getElementById("mainVolumeLabel").textContent = `Volume: ${pct}%`;
+        },
+
+        deletePreset(index) {
+          this.presets.splice(index, 1);
+          this.savePresets();
+          this.renderPresetAccordion();
+        },
+
+        loadPreset(preset) {
+          document.getElementById("instrumentSeedInput").value = preset.seed;
+          if (preset.octave !== undefined) {
+            document.getElementById("octaveSelect").value = preset.octave;
+          }
+          this.setVolume(preset.volume !== undefined ? preset.volume : 1.0);
+          this.activePresetIndex = preset.index;
+          this.updateInstrumentAndPushState(preset.seed);
+        },
+
+        copyToClipboard(text) {
+          navigator.clipboard.writeText(text).then(() => {
+            // Brief visual feedback could be added here
+          });
+        },
+
+        renderPresetAccordion() {
+          const container = document.getElementById("presetAccordion");
+          container.innerHTML = "";
+
+          // Group presets by type
+          const byType = {};
+          this.presets.forEach((preset, index) => {
+            const type = preset.type;
+            if (!byType[type]) byType[type] = [];
+            byType[type].push({ ...preset, index });
+          });
+
+          // Check if any presets exist
+          if (this.presets.length === 0) {
+            container.innerHTML = '<div class="no-presets">No presets saved yet. Play an instrument and save it above!</div>';
+            return;
+          }
+
+          // Render each type that has presets
+          for (let type = 0; type <= 9; type++) {
+            if (!byType[type] || byType[type].length === 0) continue;
+
+            const typeName = this.typeNames[type];
+            const header = document.createElement("button");
+            header.className = "preset-type-header";
+            header.textContent = `${typeName} (${byType[type].length})`;
+            header.addEventListener("click", () => {
+              header.classList.toggle("active");
+              content.style.display = header.classList.contains("active") ? "block" : "none";
+            });
+
+            const content = document.createElement("div");
+            content.className = "preset-type-content";
+
+            byType[type].forEach((preset) => {
+              const item = document.createElement("div");
+              item.className = "preset-item";
+
+              const name = document.createElement("span");
+              name.className = "preset-name";
+              name.textContent = preset.name;
+              name.title = "Click to load";
+              name.addEventListener("click", () => this.loadPreset(preset));
+
+              const seed = document.createElement("span");
+              seed.className = "preset-seed";
+              seed.textContent = preset.seed;
+
+              const copyBtn = document.createElement("button");
+              copyBtn.className = "preset-btn copy";
+              copyBtn.textContent = "Copy";
+              copyBtn.title = "Copy seed to clipboard";
+              copyBtn.addEventListener("click", () => this.copyToClipboard(String(preset.seed)));
+
+              const renameBtn = document.createElement("button");
+              renameBtn.className = "preset-btn rename";
+              renameBtn.textContent = "Rename";
+              renameBtn.addEventListener("click", () => {
+                const newName = prompt("Enter new name:", preset.name);
+                if (newName && newName.trim()) {
+                  this.renamePreset(preset.index, newName.trim());
+                }
+              });
+
+              const deleteBtn = document.createElement("button");
+              deleteBtn.className = "preset-btn delete";
+              deleteBtn.textContent = "Delete";
+              deleteBtn.addEventListener("click", () => {
+                if (confirm(`Delete "${preset.name}"?`)) {
+                  this.deletePreset(preset.index);
+                }
+              });
+
+              // Controls row: octave, volume, buttons
+              const controls = document.createElement("div");
+              controls.className = "preset-controls";
+
+              const octLabel = document.createElement("label");
+              octLabel.textContent = "Oct:";
+              const octaveSelect = document.createElement("select");
+              octaveSelect.style.cssText = "padding: 2px; font-size: 11px;";
+              for (let o = -3; o <= 3; o++) {
+                const opt = document.createElement("option");
+                opt.value = o;
+                opt.textContent = o === 0 ? "0" : (o > 0 ? `+${o}` : o);
+                if ((preset.octave !== undefined ? preset.octave : 0) === o) opt.selected = true;
+                octaveSelect.appendChild(opt);
+              }
+              octaveSelect.addEventListener("change", (e) => {
+                this.updatePresetOctave(preset.index, parseInt(e.target.value));
+              });
+
+              const volLabel = document.createElement("label");
+              const volVal = preset.volume !== undefined ? preset.volume : 1.0;
+              volLabel.textContent = `Vol: ${Math.round(volVal * 100)}%`;
+              const volSlider = document.createElement("input");
+              volSlider.type = "range";
+              volSlider.className = "preset-volume";
+              volSlider.min = 0;
+              volSlider.max = 500;
+              volSlider.value = Math.round(volVal * 100);
+              volSlider.addEventListener("input", (e) => {
+                const v = parseInt(e.target.value) / 100;
+                volLabel.textContent = `Vol: ${Math.round(v * 100)}%`;
+                this.updatePresetVolume(preset.index, v);
+              });
+
+              controls.appendChild(octLabel);
+              controls.appendChild(octaveSelect);
+              controls.appendChild(volLabel);
+              controls.appendChild(volSlider);
+              controls.appendChild(copyBtn);
+              controls.appendChild(renameBtn);
+              controls.appendChild(deleteBtn);
+
+              item.appendChild(name);
+              item.appendChild(seed);
+              item.appendChild(controls);
+              content.appendChild(item);
+            });
+
+            container.appendChild(header);
+            container.appendChild(content);
+          }
+        },
+
+        handleSavePreset() {
+          const nameInput = document.getElementById("presetNameInput");
+          const name = nameInput.value.trim();
+          if (!name) {
+            alert("Please enter a preset name");
+            return;
+          }
+          this.addPreset(name, this.randInstrumentSeed);
+          nameInput.value = "";
+        },
+
+        exportPresets() {
+          if (this.presets.length === 0) {
+            alert("No presets to export");
+            return;
+          }
+          const data = JSON.stringify(this.presets, null, 2);
+          const blob = new Blob([data], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "zyn-presets.json";
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+
+        importPresets(file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const imported = JSON.parse(e.target.result);
+              if (!Array.isArray(imported)) {
+                throw new Error("Invalid format");
+              }
+              // Validate and import presets
+              let count = 0;
+              imported.forEach((preset) => {
+                if (preset.name && typeof preset.seed === "number") {
+                  const type = preset.type !== undefined ? preset.type : Math.abs(preset.seed) % 10;
+                  const octave = preset.octave !== undefined ? preset.octave : 0;
+                  const volume = preset.volume !== undefined ? preset.volume : 1.0;
+                  this.presets.push({ name: preset.name, seed: preset.seed, type, octave, volume });
+                  count++;
+                }
+              });
+              this.savePresets();
+              this.renderPresetAccordion();
+              alert(`Imported ${count} preset(s)`);
+            } catch (err) {
+              alert("Failed to import: Invalid preset file");
+            }
+          };
+          reader.readAsText(file);
         },
 
         getInstrument(seed) {
@@ -281,14 +884,15 @@
         },
 
         handleKeyPress(event) {
-          if (this.pressedKeys[event.key.toLowerCase()]) return;
           if (this.isTextInputActive()) return;
 
           const key = event.key.toLowerCase();
           const octaveSelect = document.getElementById("octaveSelect");
           const instrumentSeedInput = document.getElementById("instrumentSeedInput");
 
-          if (key === "+" || key === "-") {
+          if (key === "escape") {
+            this.handleStopAll();
+          } else if (key === "+" || key === "-") {
             const currentSeed = parseInt(instrumentSeedInput.value);
             instrumentSeedInput.value = key === "+" ? currentSeed + 1 : currentSeed - 1;
             this.updateInstrumentAndPushState(parseInt(instrumentSeedInput.value));
@@ -297,8 +901,21 @@
             octaveSelect.value = key === "pageup" ? Math.min(currentOctave + 1, 3) : Math.max(currentOctave - 1, -3);
             event.preventDefault();
           } else {
-            this.playNote(key);
+            // Prevent key repeat from triggering multiple notes
+            const note = this.keyToNote(key);
+            if (note !== undefined && !this.activeNotes[key]) {
+              this.playNoteOn(note, key);
+            }
           }
+        },
+
+        keyToNote(key) {
+          const keyToNoteMap = {
+            q: 0, 2: 1, w: 2, 3: 3, e: 4, r: 5, 5: 6,
+            t: 7, 6: 8, y: 9, 7: 10, u: 11, i: 12,
+            9: 13, o: 14, 0: 15, p: 16,
+          };
+          return keyToNoteMap[key];
         },
 
         createPianoKeyboard() {
@@ -310,81 +927,52 @@
             const note = i % 12;
             key.className = `key ${["C#", "D#", "F#", "G#", "A#"].includes(keys[note]) ? "black" : "white"}`;
             key.dataset.note = i;
-            key.addEventListener("mousedown", () => this.playPianoNote(i));
-            key.addEventListener("mouseup", () => this.stopPianoNote(i));
+            const pianoKey = `piano_${i}`;
+            key.addEventListener("mousedown", () => {
+              if (!this.activeNotes[pianoKey]) {
+                this.playNoteOn(i, pianoKey);
+              }
+            });
+            key.addEventListener("mouseup", () => this.playNoteOff(pianoKey));
+            key.addEventListener("mouseleave", () => this.playNoteOff(pianoKey));
             key.addEventListener("touchstart", (e) => {
               e.preventDefault();
-              this.playPianoNote(i);
+              if (!this.activeNotes[pianoKey]) {
+                this.playNoteOn(i, pianoKey);
+              }
             });
             key.addEventListener("touchend", (e) => {
               e.preventDefault();
-              this.stopPianoNote(i);
+              this.playNoteOff(pianoKey);
             });
             keyboard.appendChild(key);
           }
         },
 
-        playPianoNote(note) {
+        playNoteOn(note, trackingKey) {
           const octave = parseInt(document.getElementById("octaveSelect").value);
-          Z.play(note + octave * 12, this.randInstrument, 1);
-          document.querySelector(`[data-note="${note}"]`).classList.add("pressed");
+          const gain = this.volume;
+          const voiceId = Z.noteOn(note + octave * 12, this.randInstrument, gain);
+          this.activeNotes[trackingKey] = { voiceId, note };
+          const keyEl = document.querySelector(`[data-note="${note}"]`);
+          if (keyEl) keyEl.classList.add("pressed");
         },
 
-        stopPianoNote(note) {
-          document.querySelector(`[data-note="${note}"]`).classList.remove("pressed");
-        },
-
-        playNote(key) {
-          const keyToNoteMap = {
-            q: 0,
-            2: 1,
-            w: 2,
-            3: 3,
-            e: 4,
-            r: 5,
-            5: 6,
-            t: 7,
-            6: 8,
-            y: 9,
-            7: 10,
-            u: 11,
-            i: 12,
-            9: 13,
-            o: 14,
-            0: 15,
-            p: 16,
-          };
-          const note = keyToNoteMap[key];
-          if (note !== undefined) {
-            this.playPianoNote(note);
+        playNoteOff(trackingKey) {
+          const active = this.activeNotes[trackingKey];
+          if (active) {
+            Z.noteOff(active.voiceId);
+            const keyEl = document.querySelector(`[data-note="${active.note}"]`);
+            if (keyEl) keyEl.classList.remove("pressed");
+            delete this.activeNotes[trackingKey];
           }
         },
 
         handleKeyUp(event) {
-          const keyToNoteMap = {
-            q: 0,
-            2: 1,
-            w: 2,
-            3: 3,
-            e: 4,
-            r: 5,
-            5: 6,
-            t: 7,
-            6: 8,
-            y: 9,
-            7: 10,
-            u: 11,
-            i: 12,
-            9: 13,
-            o: 14,
-            0: 15,
-            p: 16,
-          };
-          const note = keyToNoteMap[event.key.toLowerCase()];
-          if (note !== undefined) {
-            this.stopPianoNote(note);
+          const key = event.key.toLowerCase();
+          if (this.activeNotes[key]) {
+            this.playNoteOff(key);
           }
-          delete this.pressedKeys[event.key.toLowerCase()];
         },
 
         writeInstrumentToDiv() {
@@ -393,9 +981,39 @@
         },
 
         handleRandomInstrument() {
-          const newSeed = Math.floor(Math.random() * Z.mInt);
+          const selectedType = document.querySelector('input[name="instrumentType"]:checked').value;
+          let newSeed;
+          if (selectedType === "any") {
+            newSeed = Math.floor(Math.random() * Z.mInt);
+          } else {
+            // Generate random seed that ends with the specified digit (0-9)
+            const baseSeed = Math.floor(Math.random() * Math.floor(Z.mInt / 10)) * 10;
+            newSeed = baseSeed + parseInt(selectedType);
+          }
           document.getElementById("instrumentSeedInput").value = newSeed;
+          this.activePresetIndex = null;
+          this.setVolume(1.0);
           this.updateInstrumentAndPushState(newSeed);
+        },
+
+        handleStopAll() {
+          Z.stopAll();
+          // Clear all active notes and update UI
+          Object.keys(this.activeNotes).forEach((key) => {
+            const active = this.activeNotes[key];
+            if (active) {
+              const keyEl = document.querySelector(`[data-note="${active.note}"]`);
+              if (keyEl) keyEl.classList.remove("pressed");
+            }
+          });
+          this.activeNotes = {};
+          // Clear MIDI notes and sustained notes
+          this.midiNotes = {};
+          this.sustainedNotes = {};
+          this.sustainPedal = false;
+          this.sostenutoNotes = {};
+          this.sostenutoPedal = false;
+          this.softPedal = false;
         },
 
         updateInstrumentAndPushState(seed) {
@@ -450,9 +1068,42 @@
           document.addEventListener("keyup", this.handleKeyUp.bind(this));
           window.addEventListener("popstate", this.handlePopState.bind(this));
           document.getElementById("instrumentSeedInput").addEventListener("change", (e) => {
+            this.activePresetIndex = null;
+            this.setVolume(1.0);
             this.updateInstrumentAndPushState(parseInt(e.target.value));
           });
           document.getElementById("randomInstrumentButton").addEventListener("click", this.handleRandomInstrument.bind(this));
+          document.getElementById("stopAllButton").addEventListener("click", this.handleStopAll.bind(this));
+          document.getElementById("mainVolume").addEventListener("input", (e) => {
+            const vol = parseInt(e.target.value) / 100;
+            this.volume = vol;
+            document.getElementById("mainVolumeLabel").textContent = `Volume: ${e.target.value}%`;
+            // Sync back to active preset
+            if (this.activePresetIndex !== null && this.presets[this.activePresetIndex]) {
+              this.presets[this.activePresetIndex].volume = vol;
+              this.savePresets();
+              this.renderPresetAccordion();
+            }
+          });
+          document.getElementById("savePresetButton").addEventListener("click", this.handleSavePreset.bind(this));
+          // Allow Enter key to save preset
+          document.getElementById("presetNameInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") this.handleSavePreset();
+          });
+          // Export/Import presets
+          document.getElementById("exportPresetsButton").addEventListener("click", this.exportPresets.bind(this));
+          document.getElementById("importPresetsButton").addEventListener("click", () => {
+            document.getElementById("importFileInput").click();
+          });
+          document.getElementById("importFileInput").addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+              this.importPresets(e.target.files[0]);
+              e.target.value = ""; // Reset so same file can be imported again
+            }
+          });
+          // MIDI enable/disable buttons
+          document.getElementById("enableMidiButton").addEventListener("click", this.initMIDI.bind(this));
+          document.getElementById("disableMidiButton").addEventListener("click", this.disableMIDI.bind(this));
         },
       };
 

@@ -1,20 +1,42 @@
 # ZYN.JS
 
-This is a small JS audio synthesizer which clocks in at around 5.64kb (~2.4kb zipped).
+A small JS audio synthesizer (~8.8kb minified, ~3.2kb gzipped) that generates a wide range of instruments from simple integer seeds.
 
 It could be useful for small code-golf projects, js13k etc. It's not designed to be extremely controllable, the idea is to allow a wide range of sounds to be generated from simple integer seeds.
 
-# Demo
+## Features
 
-Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=4044828069) or some of the presets below. It provides a basic interface to easily browse through seeds to hear what they sound like.
+- **Procedural instrument generation** from integer seeds using a seeded PRNG (Mulberry32)
+- **10 instrument types**: pad, lead, bass, key, pluck, bell, string, drum, perc, fx -- selected by the last digit (0-9) of the seed
+- **Note on/off** with proper ADSR envelope handling for sustained notes
+- **Per-oscillator effects**: delay with feedback, convolution reverb
+- **Modulation**: gain/filter/pitch LFOs, FM synthesis, pitch envelopes
+- **Stop all** playback with smooth fade-out
+- **Audio warm-up** to eliminate first-play delay from browser autoplay policies
+- **Automatic cleanup** of cached effect nodes to prevent memory exhaustion
 
-Use the QWERTY keys like a piano keyboard to sample the sounds. You can also use + and - to change the seed, and Page Up / Down to change the octave.
+## Demo
 
-# Quick Start
+Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=4044828069). It provides an interactive interface to explore instruments with:
 
-Simply import the minified Z.js into your project, initialise it, generate an instrument, then play it, as follows:
+- On-screen piano keyboard (mouse/touch)
+- Computer keyboard input (QWERTY layout, Q = middle C)
+- MIDI controller support with velocity sensitivity
+- MIDI pedal support (sustain, sostenuto, soft/una corda)
+- Octave selector (+/- 3 octaves, Page Up/Down keys, also applies to MIDI)
+- Volume control (0-500%)
+- Instrument type filter with random generation (type numbers shown in UI)
+- Default presets included on first load, covering all 10 instrument types
+- Preset system with save/load/rename/delete (stored in localStorage)
+- Preset export/import as JSON files
+- Presets save octave and volume settings
+- MIDI enable/disable with status indicator (green = active, red = inactive) and remembered preference
 
-```
+## Quick Start
+
+Simply import the minified Z.js into your project, initialise it, generate an instrument, then play it:
+
+```js
 // Must be called after user interaction or browser will complain.
 Z.init();
 
@@ -22,102 +44,125 @@ Z.init();
 let seed = 13;
 let instrument = Z.getInstrument(seed);
 
-// Play note 0 (Middle C)
+// Play note 0 (Middle C) - one-shot with full ADSR
 Z.play(0, instrument);
 ```
 
-Optionally, you can specify a volume (gain) for playback, i.e:
+Optionally, you can specify a volume (gain) for playback:
 
-```
+```js
 Z.play(0, instrument, 0.1); // 10% gain.
 ```
 
-# Show and Tell
+### Sustained Notes
+
+For sustained (note on/off) playback, use `noteOn` and `noteOff`:
+
+```js
+// Start a sustained note - returns a voice ID
+let voiceId = Z.noteOn(0, instrument, 1.0);
+
+// Later, release the note (respects the instrument's release envelope)
+Z.noteOff(voiceId);
+```
+
+### Stop All
+
+To immediately stop all playing sounds with a smooth fade:
+
+```js
+Z.stopAll();
+```
+
+## API
+
+| Method | Description |
+|---|---|
+| `Z.init()` | Initialise the AudioContext. Must be called after user interaction. |
+| `Z.warmUp()` | Pre-warm the audio pipeline to eliminate first-play delay. Called automatically by play/render. |
+| `Z.getInstrument(seed)` | Generate an instrument object from an integer seed. Last digit (0-9) determines the type. |
+| `Z.play(note, instrument, gain?)` | Play a one-shot note (full ADSR, then stops). |
+| `Z.noteOn(note, instrument, gain?)` | Start a sustained note. Returns a `voiceId`. |
+| `Z.noteOff(voiceId)` | Release a sustained note by its voice ID. |
+| `Z.stopAll()` | Stop all active voices with a quick fade-out. |
+| `Z.instrumentTypes` | Array of type names: `["pad", "lead", "bass", "key", "pluck", "bell", "string", "drum", "perc", "fx"]` |
+
+## Instrument Types
+
+The last digit of the seed selects the instrument type:
+
+| Digit | Type | Character |
+|---|---|---|
+| 0 | Pad | Slow attack, sustained, soft |
+| 1 | Lead | Medium attack, expressive |
+| 2 | Bass | Punchy, short attack |
+| 3 | Key | Piano-like, medium decay |
+| 4 | Pluck | Very short decay, no sustain |
+| 5 | Bell | Sharp attack, long decay, metallic |
+| 6 | String | Slow attack, sustained, bowed |
+| 7 | Drum | Very percussive, noise-based |
+| 8 | Perc | Percussive, pitched, tuned |
+| 9 | FX | Special effects, experimental |
+
+## Building
+
+The minified Z.js is built from zyn-unminified.js using terser:
+
+```
+npm install
+npm run build
+```
+
+## Show and Tell
 
 I'd love to see what people make with this. Feel free to share your creations and I'll list below.
 
 - Your demo here?
 
-# Bugs and Improvements
+## Bugs and Improvements
 
 PRs and suggestions are welcome as always, though I'm not providing any official support I'll definitely try to address things as I can.
 
-# Comfort Note
+## Comfort Note
 
 While it's been designed to create generally pleasing results, due to the random nature, some sounds may be unexpectedly harsh, so keep your headphones at a safe volume when trying new seeds!
 
-# Instrument format
+## Instrument Format
 
 If you wanted to, you could create your own instruments instead of using the random generator. Or you could tweak a random instrument if you found something close to what you wanted that just needs a slight adjustment.
 
 An example instrument structure is given below (field explanation follows):
 
-```
+```json
 {
   "type": "key",
   "oscs": [
     {
       "waveform": "sine",
       "adsrGain": {
-        "A": [
-          0.05693423342891038,
-          0
-        ],
-        "D": [
-          0.13211455205455422,
-          1
-        ],
-        "S": [
-          0.22388726491481065,
-          0.12901083709139768
-        ],
-        "R": [
-          0.060031788307242095,
-          0
-        ]
+        "A": [0.057, 0],
+        "D": [0.132, 1],
+        "S": [0.224, 0.129],
+        "R": [0.060, 0]
       },
       "filterType": "lowpass",
       "adsrFilter": {
-        "A": [
-          0.06563512170687318,
-          0
-        ],
-        "D": [
-          0.015998489782214166,
-          1
-        ],
-        "S": [
-          0.1440335279563442,
-          0.6034248698067015
-        ],
-        "R": [
-          0.31740856531541795,
-          0
-        ]
+        "A": [0.066, 0],
+        "D": [0.016, 1],
+        "S": [0.144, 0.603],
+        "R": [0.317, 0]
       },
-      "filterQ": 6.649962714873254,
+      "filterQ": 6.65,
       "adsrFilterQ": {
-        "A": [
-          0.06578370232600719,
-          0
-        ],
-        "D": [
-          0.1810373356100172,
-          0.007160812766847403
-        ],
-        "S": [
-          0.29593191014137116,
-          1
-        ],
-        "R": [
-          0.36766220070421696,
-          0
-        ]
+        "A": [0.066, 0],
+        "D": [0.181, 0.007],
+        "S": [0.296, 1],
+        "R": [0.368, 0]
       },
       "gLFO": {
         "type": "square",
-        "frequency": 1.094736761553213,
-        "depth": 0.14153960114344954
+        "frequency": 1.09,
+        "depth": 0.14
       },
       "fLFO": false,
       "pLFO": false,
@@ -126,116 +171,42 @@ An example instrument structure is given below (field explanation follows):
       "oct": -1,
       "detune": 0,
       "fx": {
-        "del": {
-          "time": 0.11966061184648424,
-          "feedback": 0.6961127627640963
-        },
+        "del": { "time": 0.12, "feedback": 0.70 },
         "verb": null
-      }
-    },
-    {
-      "waveform": "square",
-      "adsrGain": {
-        "A": [
-          0.023156628734432163,
-          0
-        ],
-        "D": [
-          0.17559921448118987,
-          1
-        ],
-        "S": [
-          0.06951758014038205,
-          0.5704594227383374
-        ],
-        "R": [
-          0.019926150678656995,
-          0
-        ]
-      },
-      "filterType": "bandpass",
-      "adsrFilter": {
-        "A": [
-          0.0249565071426332,
-          0
-        ],
-        "D": [
-          0.15568520040251316,
-          0.6527195668225706
-        ],
-        "S": [
-          0.08358659972436726,
-          1
-        ],
-        "R": [
-          0.04461938492022455,
-          0
-        ]
-      },
-      "filterQ": 14.488721522502601,
-      "adsrFilterQ": {
-        "A": [
-          0.003658482269383967,
-          0
-        ],
-        "D": [
-          0.10223728716373444,
-          0.3252615128047254
-        ],
-        "S": [
-          0.19629636879544704,
-          1
-        ],
-        "R": [
-          0.09549238183535635,
-          0
-        ]
-      },
-      "gLFO": false,
-      "fLFO": false,
-      "pLFO": false,
-      "FM": false,
-      "pENV": false,
-      "oct": -3,
-      "detune": 5,
-      "fx": {
-        "del": null,
-        "verb": {
-          "duration": 0.7837810159195214,
-          "decay": 0.8366046561859548
-        }
       }
     }
   ]
 }
-
 ```
 
-- **type** - does nothing really, just a friendly name for the "type" of instrument - not always accurate as they are random!
+- **type** - A friendly name for the instrument type (pad, lead, bass, key, pluck, bell, string, drum, perc, fx). Determined by seed but not always perfectly descriptive given the random nature.
 - **oscs** - An array of oscillators - each oscillator is an object.
-  - **waveform** - Base waveform of the oscillator, either "sine", "square", "sawtooth", "triangle", or "noise"
-  - **adsrGain** - An ADSR envelope for gain **A**ttack, **D**ecay, **D**ustain, **R**elease
-    - Each step is an array with 2 values: [time, amount]
-  - **filterType** - Type of filter to apply to oscillator, either "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking" or "allpass"
-  - **adsrFilter** - An ADSR envelope for the filter cutoff (see adsrGain for explanation).
-  - **filterQ** - the "Q" or resonance of the filter.
-  - **adsrFilterQ** - An ADSR envelope for the filter Q / resonance (see adsrGain for explanation).
-  - **gLFO** - Low frequency oscillator for gain
-    - **type**: LFO waveform, either "sine", "square", "sawtooth", "triangle"
-    - **frequency**: LFO frequency.
+  - **waveform** - Base waveform: "sine", "square", "sawtooth", "triangle", or "noise"
+  - **adsrGain** - ADSR envelope for gain: **A**ttack, **D**ecay, **S**ustain, **R**elease
+    - Each step is an array with 2 values: [time (seconds), amount (0-1)]
+  - **filterType** - Filter type: "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", or "allpass"
+  - **adsrFilter** - ADSR envelope for the filter cutoff frequency.
+  - **filterQ** - Filter Q (resonance) value.
+  - **adsrFilterQ** - ADSR envelope for the filter Q / resonance.
+  - **gLFO** - Gain LFO (low frequency oscillator), or `false` if unused.
+    - **type**: LFO waveform ("sine", "square", "sawtooth", "triangle")
+    - **frequency**: LFO rate in Hz.
     - **depth**: LFO depth.
-  - **fLFO**: Filter LFO (see gLFO for explanation).
-  - **pLFO**: Pitch LFO (see pLFO for explanation).
-    "FM": false,
-  - **pENV** - An ADSR envelope for the oscillator pitch (see adsrGain for explanation). The naming is inconsistent with the other envelopes, but it's the same concept.
-  - **oct** - Relative octave of the oscillator (i.e. -1 is one octave down)
-  - **detune** - Relative semitones to detune the oscillator.
-  - **fx** - Effects to apply to oscillator
-    - **del** - A delay config object or _null_ for no delay.
-      - **time** - Delay time, in seconds.
-      - **feedback** - Delay feedback (0 = none, 1 = 100%)
-    - **verb** - A reverb config object or _null_ for no reverb.
-      - **duration** - Impulse length in seconds.
-      - **decay** - Decay amount.
+  - **fLFO** - Filter frequency LFO (same fields as gLFO), or `false`.
+  - **pLFO** - Pitch LFO (same fields as gLFO), or `false`.
+  - **FM** - Frequency modulation config, or `false`.
+    - **type**: Modulator waveform.
+    - **frequency**: Modulator frequency ratio.
+    - **depth**: Modulation depth.
+  - **pENV** - Pitch envelope (ADSR format with an additional `amount` field), or `false`.
+  - **oct** - Relative octave offset (e.g. -1 = one octave down)
+  - **detune** - Detune in semitones.
+  - **fx** - Effects
+    - **del** - Delay config or `null`.
+      - **time** - Delay time in seconds.
+      - **feedback** - Feedback amount (0-1).
+    - **verb** - Reverb config or `null`.
+      - **duration** - Impulse response length in seconds.
+      - **decay** - Decay rate.
 
-# Have fun!
+## Have fun!
