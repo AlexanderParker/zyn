@@ -12,6 +12,8 @@ let Z = {
     },
   // AudioContext
   ctx: null,
+  // Master gain node for output (allows recording tap)
+  masterGain: null,
   // Track if audio has been warmed up
   warmedUp: false,
   // Maximum number of cached effect nodes before cleanup
@@ -19,6 +21,8 @@ let Z = {
   // Initialize AudioContext
   init: () => {
     Z.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    Z.masterGain = Z.ctx.createGain();
+    Z.masterGain.connect(Z.ctx.destination);
   },
   // Warm up the audio context to eliminate first-play delay
   warmUp: () => {
@@ -329,9 +333,9 @@ let Z = {
             Z.fxNodes[rId] = nVerb; // Store the same node we use
           }
         }
-        // Connect Delay -> Reverb -> Output
+        // Connect Delay -> Reverb -> Output (via master gain)
         nDel.connect(nVerb);
-        nVerb.connect(Z.aC.destination);
+        nVerb.connect(Z.masterGain);
         oscs.push(osc);
       });
     });
@@ -343,7 +347,7 @@ let Z = {
       nGains.forEach((nGain) => {
         nGain.connect(nDist);
       });
-      nDist.connect(Z.aC.destination);
+      nDist.connect(Z.masterGain);
     }
     // Start oscillators
     oscs.forEach((osc) => {

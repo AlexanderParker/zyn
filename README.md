@@ -35,6 +35,7 @@ Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=
 - Switchable active channel -- click "Set Active" on any channel to make it the target for keyboard input, instrument generation, and preset loads
 - Channel configuration presets -- save, load, export, and import entire 16-channel setups
 - Per-channel activity indicators -- green dot on note-on, red flash on note-off
+- Audio recording -- arm recording, play notes to capture, save clips as WAV files
 
 ## Quick Start
 

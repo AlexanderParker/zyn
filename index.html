@@ -300,6 +300,7 @@
             <li><strong>Generate instruments:</strong> Select a type and click "Generate Random", or enter a seed number directly</li>
             <li><strong>Browse seeds:</strong> Use + and - keys to cycle through instrument seeds</li>
             <li><strong>Stop sound:</strong> Press Escape or click "Stop All"</li>
+            <li><strong>Record audio:</strong> Click "Record" to arm recording (turns yellow), then play notes to start capturing. Click "Stop Rec" or "Stop All" to finish. Clips are auto-saved to browser storage (with quota indicator). Export clips as WAV files. Click clip names to rename.</li>
             <li><strong>Save presets:</strong> Enter a name and click "Save Current" to save instruments you like</li>
             <li><strong>Manage presets:</strong> Presets save octave and volume settings, and can be edited in-place</li>
             <li><strong>Export/Import:</strong> Back up your presets to a JSON file or share them with others</li>
@@ -332,6 +333,15 @@
               <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 120px;" />
             </span>
             <button id="stopAllButton" style="background-color: #e74c3c;">Stop All</button>
+            <button id="recordButton" style="background-color: #6c757d;">Record</button>
+            <span id="recordingSize" style="font-size: 12px; color: #dc3545; display: none;"></span>
+          </div>
+          <div id="clipsSection" style="display: none; margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong>Recorded Clips</strong>
+              <span id="storageIndicator" style="font-size: 11px; color: #666;"></span>
+            </div>
+            <div id="clipsContainer"></div>
           </div>
           <h2>Instrument Generator</h2>
           <div>
@@ -424,13 +434,26 @@
         activeChannel: 0,  // Which channel (0-15) is currently active for keyboard/editing
         channelPresets: [],  // Saved channel configuration presets
         activityTimeouts: {},  // Track timeout IDs for activity light fade
+        // Recording state
+        isRecordingArmed: false,  // Waiting for first note to start recording
+        isRecording: false,       // Currently recording
+        mediaRecorder: null,
+        recordedChunks: [],
+        recordingStream: null,
+        clips: [],                // Array of { blob, url, name, saved } - saved means persisted to localStorage
+        clipCounter: 0,
+        maxStorageMB: 5,          // Conservative localStorage limit (updated on init if Storage API available)
+        recordingSizeInterval: null,  // Interval for updating recording size display
+        recordingStartTime: null,     // Timestamp when recording started
         presets: [],      // User presets from localStorage
         typeNames: ["Pad", "Lead", "Bass", "Key", "Pluck", "Bell", "String", "Drum", "Perc", "FX"],
 
         init() {
           if (!Z.ctx) Z.init();
+          this.queryStorageQuota();
           this.loadPresets();
           this.loadChannelPresets();
+          this.loadClips();
           this.attachEventListeners();
           this.loadStateAndUpdateInstrument();
           this.setupCollapsible();
@@ -450,6 +473,14 @@
           };
           document.addEventListener("click", warmUpOnce);
           document.addEventListener("keydown", warmUpOnce);
+          // Warn about unsaved clips on page unload
+          window.addEventListener("beforeunload", (e) => {
+            if (this.hasUnsavedClips()) {
+              e.preventDefault();
+              e.returnValue = "";
+              return "";
+            }
+          });
         },
 
         // MIDI Support
@@ -592,6 +623,10 @@
             Z.ctx.resume();
           }
           Z.warmUp();
+          // Start recording on first note if armed
+          if (this.isRecordingArmed && !this.isRecording) {
+            this.startRecording();
+          }
           // Resolve channel instrument (fallback to channel 0)
           const channelData = this.getChannelForMidi(channel);
           let gain = (velocity / 127) * channelData.volume;
@@ -1405,6 +1440,10 @@
         },
 
         playNoteOn(note, trackingKey) {
+          // Start recording on first note if armed
+          if (this.isRecordingArmed && !this.isRecording) {
+            this.startRecording();
+          }
           const octave = parseInt(document.getElementById("octaveSelect").value);
           const gain = this.volume;
           const voiceId = Z.noteOn(note + octave * 12, this.randInstrument, gain);
@@ -1478,6 +1517,429 @@
             if (dot) dot.style.backgroundColor = "transparent";
           }
           this.activityTimeouts = {};
+          // Stop recording if active
+          if (this.isRecording) {
+            this.stopRecording();
+          }
+        },
+
+        // Recording functionality
+        armRecording() {
+          if (this.isRecording) return;
+          // Set up MediaStreamDestination connected to master gain
+          if (!Z.ctx) Z.init();
+          this.recordingStream = Z.ctx.createMediaStreamDestination();
+          Z.masterGain.connect(this.recordingStream);
+          this.isRecordingArmed = true;
+          this.updateRecordButton();
+        },
+
+        startRecording() {
+          if (this.isRecording || !this.isRecordingArmed) return;
+          this.isRecording = true;
+          this.isRecordingArmed = false;
+          this.recordedChunks = [];
+          this.recordingStartTime = Date.now();
+          // Determine supported MIME type
+          const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+            ? "audio/webm;codecs=opus"
+            : "audio/webm";
+          this.mediaRecorder = new MediaRecorder(this.recordingStream.stream, { mimeType });
+          this.mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) this.recordedChunks.push(e.data);
+          };
+          this.mediaRecorder.onstop = () => this.finalizeRecording();
+          // Request data every 200ms so we can show running total
+          this.mediaRecorder.start(200);
+          this.updateRecordButton();
+          // Start size display interval
+          this.updateRecordingSize();
+          this.recordingSizeInterval = setInterval(() => this.updateRecordingSize(), 200);
+        },
+
+        stopRecording() {
+          if (!this.isRecording && !this.isRecordingArmed) return;
+          // Clear size display interval
+          if (this.recordingSizeInterval) {
+            clearInterval(this.recordingSizeInterval);
+            this.recordingSizeInterval = null;
+          }
+          document.getElementById("recordingSize").style.display = "none";
+          if (this.isRecordingArmed) {
+            // Was armed but never started - just disarm
+            this.isRecordingArmed = false;
+            if (this.recordingStream) {
+              Z.masterGain.disconnect(this.recordingStream);
+              this.recordingStream = null;
+            }
+            this.updateRecordButton();
+            return;
+          }
+          if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+            this.mediaRecorder.stop();
+          }
+          this.isRecording = false;
+          if (this.recordingStream) {
+            Z.masterGain.disconnect(this.recordingStream);
+            this.recordingStream = null;
+          }
+          this.updateRecordButton();
+        },
+
+        updateRecordingSize() {
+          const el = document.getElementById("recordingSize");
+          if (!el) return;
+          const totalBytes = this.recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+          const kb = (totalBytes / 1024).toFixed(1);
+          el.textContent = `Recording: ${kb} KB`;
+          el.style.display = "inline";
+        },
+
+        finalizeRecording() {
+          if (this.recordedChunks.length === 0) return;
+          const blob = new Blob(this.recordedChunks, { type: "audio/webm" });
+          const url = URL.createObjectURL(blob);
+          const durationSecs = this.recordingStartTime ? (Date.now() - this.recordingStartTime) / 1000 : 0;
+          this.clipCounter++;
+          const clip = {
+            blob,
+            url,
+            name: `Clip ${this.clipCounter}`,
+            duration: durationSecs,
+            saved: false  // Not yet persisted to localStorage
+          };
+          this.clips.push(clip);
+          this.saveClip(this.clips.length - 1);  // Auto-save to localStorage
+          this.renderClips();
+        },
+
+        toggleRecording() {
+          if (this.isRecording) {
+            this.stopRecording();
+          } else if (this.isRecordingArmed) {
+            this.stopRecording(); // Disarm
+          } else {
+            this.armRecording();
+          }
+        },
+
+        updateRecordButton() {
+          const btn = document.getElementById("recordButton");
+          if (this.isRecording) {
+            btn.textContent = "Stop Rec";
+            btn.style.backgroundColor = "#dc3545";
+          } else if (this.isRecordingArmed) {
+            btn.textContent = "Armed...";
+            btn.style.backgroundColor = "#ffc107";
+            btn.style.color = "#000";
+          } else {
+            btn.textContent = "Record";
+            btn.style.backgroundColor = "#6c757d";
+            btn.style.color = "#fff";
+          }
+        },
+
+        renderClips() {
+          const section = document.getElementById("clipsSection");
+          const container = document.getElementById("clipsContainer");
+          this.updateStorageIndicator();
+          if (this.clips.length === 0) {
+            section.style.display = "none";
+            return;
+          }
+          section.style.display = "block";
+          container.innerHTML = "";
+          this.clips.forEach((clip, index) => {
+            const row = document.createElement("div");
+            row.style.cssText = "display: flex; align-items: center; gap: 8px; padding: 6px; margin: 4px 0; background-color: #fff; border: 1px solid #dee2e6; border-radius: 4px;";
+
+            const name = document.createElement("span");
+            name.style.cssText = "min-width: 80px; font-size: 13px; cursor: pointer;";
+            name.textContent = clip.name + (clip.saved ? "" : " *");
+            name.title = "Click to rename";
+            name.addEventListener("click", () => this.renameClip(index));
+
+            const duration = document.createElement("span");
+            duration.style.cssText = "font-size: 11px; color: #666; min-width: 45px;";
+            if (clip.duration !== undefined && clip.duration > 0) {
+              const mins = Math.floor(clip.duration / 60);
+              const secs = Math.floor(clip.duration % 60).toString().padStart(2, "0");
+              duration.textContent = `${mins}:${secs}`;
+            } else {
+              duration.textContent = "--:--";
+            }
+
+            const audio = document.createElement("audio");
+            audio.src = clip.url;
+            audio.controls = true;
+            audio.preload = "metadata";
+            audio.style.cssText = "height: 30px; flex: 1;";
+
+            const downloadBtn = document.createElement("button");
+            downloadBtn.textContent = "Save WAV";
+            downloadBtn.style.cssText = "padding: 4px 8px; font-size: 11px; background-color: #28a745; margin: 0;";
+            downloadBtn.addEventListener("click", () => this.downloadClipAsWav(index));
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "Delete";
+            deleteBtn.style.cssText = "padding: 4px 8px; font-size: 11px; background-color: #dc3545; margin: 0;";
+            deleteBtn.addEventListener("click", () => this.deleteClip(index));
+
+            row.appendChild(name);
+            row.appendChild(duration);
+            row.appendChild(audio);
+            row.appendChild(downloadBtn);
+            row.appendChild(deleteBtn);
+            container.appendChild(row);
+          });
+        },
+
+        async downloadClipAsWav(index) {
+          const clip = this.clips[index];
+          if (!clip) return;
+          try {
+            // Decode the webm blob to audio buffer
+            const arrayBuffer = await clip.blob.arrayBuffer();
+            const audioBuffer = await Z.ctx.decodeAudioData(arrayBuffer);
+            // Convert to WAV
+            const wavBlob = this.audioBufferToWav(audioBuffer);
+            const url = URL.createObjectURL(wavBlob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = clip.name.replace(/[^a-z0-9]/gi, "_") + ".wav";
+            a.click();
+            URL.revokeObjectURL(url);
+            this.renderClips();
+          } catch (e) {
+            alert("Failed to convert to WAV: " + e.message);
+          }
+        },
+
+        audioBufferToWav(buffer) {
+          const numChannels = buffer.numberOfChannels;
+          const sampleRate = buffer.sampleRate;
+          const format = 1; // PCM
+          const bitDepth = 16;
+          const bytesPerSample = bitDepth / 8;
+          const blockAlign = numChannels * bytesPerSample;
+          // Interleave channels
+          const length = buffer.length;
+          const dataLength = length * blockAlign;
+          const bufferLength = 44 + dataLength;
+          const arrayBuffer = new ArrayBuffer(bufferLength);
+          const view = new DataView(arrayBuffer);
+          // WAV header
+          const writeString = (offset, str) => {
+            for (let i = 0; i < str.length; i++) {
+              view.setUint8(offset + i, str.charCodeAt(i));
+            }
+          };
+          writeString(0, "RIFF");
+          view.setUint32(4, bufferLength - 8, true);
+          writeString(8, "WAVE");
+          writeString(12, "fmt ");
+          view.setUint32(16, 16, true); // fmt chunk size
+          view.setUint16(20, format, true);
+          view.setUint16(22, numChannels, true);
+          view.setUint32(24, sampleRate, true);
+          view.setUint32(28, sampleRate * blockAlign, true);
+          view.setUint16(32, blockAlign, true);
+          view.setUint16(34, bitDepth, true);
+          writeString(36, "data");
+          view.setUint32(40, dataLength, true);
+          // Write audio data
+          const channels = [];
+          for (let ch = 0; ch < numChannels; ch++) {
+            channels.push(buffer.getChannelData(ch));
+          }
+          let offset = 44;
+          for (let i = 0; i < length; i++) {
+            for (let ch = 0; ch < numChannels; ch++) {
+              let sample = channels[ch][i];
+              sample = Math.max(-1, Math.min(1, sample));
+              sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+              view.setInt16(offset, sample, true);
+              offset += 2;
+            }
+          }
+          return new Blob([arrayBuffer], { type: "audio/wav" });
+        },
+
+        renameClip(index) {
+          const clip = this.clips[index];
+          if (!clip) return;
+          const newName = prompt("Enter new name:", clip.name);
+          if (newName && newName.trim()) {
+            clip.name = newName.trim();
+            if (clip.saved) {
+              this.saveClipMetadata(index);
+            }
+            this.renderClips();
+          }
+        },
+
+        deleteClip(index) {
+          const clip = this.clips[index];
+          if (clip) {
+            URL.revokeObjectURL(clip.url);
+            localStorage.removeItem(`zynClip_${index}`);
+            this.clips.splice(index, 1);
+            // Re-index remaining clips in localStorage
+            this.reindexClips();
+            this.renderClips();
+          }
+        },
+
+        hasUnsavedClips() {
+          return this.clips.some(clip => !clip.saved);
+        },
+
+        // Clip persistence
+        async queryStorageQuota() {
+          try {
+            if (navigator.storage && navigator.storage.estimate) {
+              const estimate = await navigator.storage.estimate();
+              // Use quota minus usage, capped at a reasonable max for clips
+              // localStorage is typically 5-10MB, but StorageManager reports total origin quota
+              // We'll use a fraction of available space, max 50MB for clips
+              const availableMB = (estimate.quota - estimate.usage) / (1024 * 1024);
+              this.maxStorageMB = Math.min(50, Math.max(5, Math.floor(availableMB * 0.1)));
+            }
+          } catch (e) {
+            // Fall back to conservative default
+          }
+        },
+
+        getClipsStorageUsed() {
+          let total = 0;
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("zynClip_")) {
+              total += localStorage.getItem(key).length * 2; // UTF-16 = 2 bytes per char
+            }
+          }
+          return total;
+        },
+
+        updateStorageIndicator() {
+          const indicator = document.getElementById("storageIndicator");
+          if (!indicator) return;
+          const used = this.getClipsStorageUsed();
+          const usedMB = (used / (1024 * 1024)).toFixed(2);
+          const maxMB = this.maxStorageMB;
+          const pct = Math.min(100, (used / (maxMB * 1024 * 1024)) * 100).toFixed(0);
+          let color = "#666";
+          if (pct > 80) color = "#dc3545";
+          else if (pct > 50) color = "#ffc107";
+          indicator.style.color = color;
+          indicator.textContent = `Storage: ${usedMB}MB / ~${maxMB}MB (${pct}%)`;
+        },
+
+        async saveClip(index) {
+          const clip = this.clips[index];
+          if (!clip || !clip.blob) return;
+          try {
+            // Convert blob to base64
+            const arrayBuffer = await clip.blob.arrayBuffer();
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const data = JSON.stringify({
+              name: clip.name,
+              type: clip.blob.type,
+              duration: clip.duration,
+              data: base64
+            });
+            // Check if we have space
+            const newSize = data.length * 2;
+            const currentUsed = this.getClipsStorageUsed();
+            if (currentUsed + newSize > this.maxStorageMB * 1024 * 1024) {
+              alert("Storage full! Delete some clips to save new ones.");
+              return;
+            }
+            localStorage.setItem(`zynClip_${index}`, data);
+            clip.saved = true;
+            this.saveClipsIndex();
+            this.updateStorageIndicator();
+          } catch (e) {
+            console.error("Failed to save clip:", e);
+            alert("Failed to save clip: " + e.message);
+          }
+        },
+
+        saveClipMetadata(index) {
+          const clip = this.clips[index];
+          if (!clip) return;
+          const stored = localStorage.getItem(`zynClip_${index}`);
+          if (stored) {
+            try {
+              const data = JSON.parse(stored);
+              data.name = clip.name;
+              localStorage.setItem(`zynClip_${index}`, JSON.stringify(data));
+            } catch (e) {}
+          }
+        },
+
+        saveClipsIndex() {
+          const index = this.clips.map(c => ({ name: c.name, saved: c.saved }));
+          localStorage.setItem("zynClipsIndex", JSON.stringify(index));
+          localStorage.setItem("zynClipCounter", this.clipCounter);
+        },
+
+        reindexClips() {
+          // Remove all clip data and re-save with correct indices
+          const oldKeys = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("zynClip_")) {
+              oldKeys.push(key);
+            }
+          }
+          oldKeys.forEach(key => localStorage.removeItem(key));
+          // Re-save each clip
+          this.clips.forEach((clip, i) => {
+            if (clip.saved && clip.blob) {
+              this.saveClip(i);
+            }
+          });
+          this.saveClipsIndex();
+        },
+
+        async loadClips() {
+          try {
+            const indexStr = localStorage.getItem("zynClipsIndex");
+            const counter = localStorage.getItem("zynClipCounter");
+            if (counter) this.clipCounter = parseInt(counter) || 0;
+            if (!indexStr) return;
+            const index = JSON.parse(indexStr);
+            if (!Array.isArray(index)) return;
+            for (let i = 0; i < index.length; i++) {
+              const stored = localStorage.getItem(`zynClip_${i}`);
+              if (stored) {
+                try {
+                  const data = JSON.parse(stored);
+                  // Convert base64 back to blob
+                  const binary = atob(data.data);
+                  const bytes = new Uint8Array(binary.length);
+                  for (let j = 0; j < binary.length; j++) {
+                    bytes[j] = binary.charCodeAt(j);
+                  }
+                  const blob = new Blob([bytes], { type: data.type || "audio/webm" });
+                  const url = URL.createObjectURL(blob);
+                  this.clips.push({
+                    blob,
+                    url,
+                    name: data.name || `Clip ${i + 1}`,
+                    duration: data.duration || 0,
+                    saved: true
+                  });
+                } catch (e) {
+                  console.error("Failed to load clip", i, e);
+                }
+              }
+            }
+            this.renderClips();
+          } catch (e) {
+            console.error("Failed to load clips:", e);
+          }
         },
 
         updateInstrumentAndPushState(seed) {
@@ -1538,6 +2000,7 @@
           });
           document.getElementById("randomInstrumentButton").addEventListener("click", this.handleRandomInstrument.bind(this));
           document.getElementById("stopAllButton").addEventListener("click", this.handleStopAll.bind(this));
+          document.getElementById("recordButton").addEventListener("click", this.toggleRecording.bind(this));
           document.getElementById("mainVolume").addEventListener("input", (e) => {
             const vol = parseInt(e.target.value) / 100;
             this.volume = vol;
