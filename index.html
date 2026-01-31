@@ -1839,9 +1839,15 @@
           const clip = this.clips[index];
           if (!clip || !clip.blob) return;
           try {
-            // Convert blob to base64
+            // Convert blob to base64 in chunks to avoid call stack limits
             const arrayBuffer = await clip.blob.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = "";
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            const base64 = btoa(binary);
             const data = JSON.stringify({
               name: clip.name,
               type: clip.blob.type,
