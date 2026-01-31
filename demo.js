@@ -31,6 +31,12 @@ const ZynDemo = {
   recordingStartTime: null,     // Timestamp when recording started
   presets: [],      // User presets from localStorage
   typeNames: ["Pad", "Lead", "Bass", "Key", "Pluck", "Bell", "String", "Drum", "Perc", "FX"],
+  // Oscilloscope state
+  scopeEnabled: true,
+  scopeAnimId: null,
+  analyserL: null,
+  analyserR: null,
+  scopeSplitter: null,
 
   init() {
     if (!Z.ctx) Z.init();
@@ -46,6 +52,11 @@ const ZynDemo = {
     this.renderPresetAccordion();
     this.initChannels();
     this.renderChannelPresets();
+    // Start oscilloscope
+    this.initScope();
+    this.drawScope();
+    document.getElementById("scopeToggle").classList.remove("btn-secondary");
+    document.getElementById("scopeToggle").classList.add("btn-info");
     // Auto-enable MIDI if previously enabled
     if (localStorage.getItem("zynMidiEnabled") === "true") {
       this.initMIDI();
@@ -1083,6 +1094,7 @@ const ZynDemo = {
   writeInstrumentToDiv() {
     const container = document.getElementById("instrumentJson");
     container.textContent = JSON.stringify(this.randInstrument, null, 2);
+    this.renderInstrumentVisualizer();
   },
 
   handleRandomInstrument() {
@@ -1712,11 +1724,326 @@ const ZynDemo = {
     // MIDI enable/disable buttons
     document.getElementById("enableMidiButton").addEventListener("click", this.initMIDI.bind(this));
     document.getElementById("disableMidiButton").addEventListener("click", this.disableMIDI.bind(this));
+    // Oscilloscope toggle
+    document.getElementById("scopeToggle").addEventListener("click", this.toggleScope.bind(this));
     // Force route toggle
     document.getElementById("forceRouteToggle").addEventListener("change", (e) => {
       this.forceRouteToActive = e.target.checked;
       localStorage.setItem("zynForceRoute", e.target.checked ? "true" : "false");
     });
+  },
+
+  // Oscilloscope
+  initScope() {
+    if (!Z.ctx) Z.init();
+    this.scopeSplitter = Z.ctx.createChannelSplitter(2);
+    this.analyserL = Z.ctx.createAnalyser();
+    this.analyserR = Z.ctx.createAnalyser();
+    this.analyserL.fftSize = 2048;
+    this.analyserR.fftSize = 2048;
+    Z.masterGain.connect(this.scopeSplitter);
+    this.scopeSplitter.connect(this.analyserL, 0);
+    this.scopeSplitter.connect(this.analyserR, 1);
+  },
+
+  toggleScope() {
+    this.scopeEnabled = !this.scopeEnabled;
+    const container = document.getElementById("oscilloscopeContainer");
+    const btn = document.getElementById("scopeToggle");
+    if (this.scopeEnabled) {
+      if (!this.analyserL) this.initScope();
+      container.style.display = "block";
+      btn.classList.remove("btn-secondary");
+      btn.classList.add("btn-info");
+      this.drawScope();
+    } else {
+      container.style.display = "none";
+      btn.classList.remove("btn-info");
+      btn.classList.add("btn-secondary");
+      if (this.scopeAnimId) {
+        cancelAnimationFrame(this.scopeAnimId);
+        this.scopeAnimId = null;
+      }
+    }
+  },
+
+  drawScope() {
+    if (!this.scopeEnabled) return;
+    this.scopeAnimId = requestAnimationFrame(() => this.drawScope());
+
+    const canvas = document.getElementById("oscilloscopeCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Match canvas resolution to display size
+    if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+    }
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const mid = h / 2;
+    const bufLen = this.analyserL.frequencyBinCount;
+    const dataL = new Uint8Array(bufLen);
+    const dataR = new Uint8Array(bufLen);
+    this.analyserL.getByteTimeDomainData(dataL);
+    this.analyserR.getByteTimeDomainData(dataR);
+
+    // Clear
+    ctx.fillStyle = "#0a0a14";
+    ctx.fillRect(0, 0, w, h);
+
+    // Center line
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(w, mid);
+    ctx.stroke();
+
+    // Draw waveform helper
+    const drawWave = (data, color) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const sliceWidth = w / bufLen;
+      let x = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const v = data[i] / 128.0;
+        const y = (v * mid);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.stroke();
+    };
+
+    // Left = cyan, Right = coral
+    drawWave(dataL, "rgba(0, 217, 255, 0.8)");
+    drawWave(dataR, "rgba(233, 69, 96, 0.8)");
+  },
+
+  // Instrument Visualizer
+  renderInstrumentVisualizer() {
+    const container = document.getElementById("instrumentVisualizer");
+    if (!container) return;
+    const inst = this.randInstrument;
+    if (!inst || !inst.oscs) {
+      container.innerHTML = "";
+      return;
+    }
+    container.innerHTML = "";
+
+    // Render each oscillator card
+    inst.oscs.forEach((osc, i) => {
+      const card = document.createElement("div");
+      card.className = "osc-card";
+
+      // Header
+      const header = document.createElement("div");
+      header.className = "osc-header";
+
+      const label = document.createElement("span");
+      label.className = "osc-label";
+      label.textContent = `Osc ${i + 1}`;
+      header.appendChild(label);
+
+      const wfBadge = document.createElement("span");
+      wfBadge.className = "osc-badge waveform";
+      wfBadge.textContent = osc.waveform;
+      header.appendChild(wfBadge);
+
+      if (osc.oct !== 0) {
+        const octBadge = document.createElement("span");
+        octBadge.className = "osc-badge";
+        octBadge.textContent = `oct ${osc.oct > 0 ? "+" : ""}${osc.oct}`;
+        header.appendChild(octBadge);
+      }
+      if (osc.detune) {
+        const detBadge = document.createElement("span");
+        detBadge.className = "osc-badge";
+        detBadge.textContent = `detune ${osc.detune}c`;
+        header.appendChild(detBadge);
+      }
+      if (osc.filterType) {
+        const fBadge = document.createElement("span");
+        fBadge.className = "osc-badge filter";
+        fBadge.textContent = `${osc.filterType} Q:${osc.filterQ !== undefined ? osc.filterQ.toFixed(1) : "?"}`;
+        header.appendChild(fBadge);
+      }
+
+      card.appendChild(header);
+
+      // ADSR Envelopes
+      const envRow = document.createElement("div");
+      envRow.className = "osc-envelopes";
+
+      if (osc.adsrGain) {
+        envRow.appendChild(this.createEnvBlock("Gain", osc.adsrGain, "rgba(0, 217, 255, 0.9)"));
+      }
+      if (osc.adsrFilter) {
+        envRow.appendChild(this.createEnvBlock("Filter Freq", osc.adsrFilter, "rgba(255, 171, 0, 0.9)"));
+      }
+      if (osc.adsrFilterQ) {
+        envRow.appendChild(this.createEnvBlock("Filter Q", osc.adsrFilterQ, "rgba(255, 171, 0, 0.6)"));
+      }
+      if (osc.pENV && osc.pENV !== false) {
+        envRow.appendChild(this.createEnvBlock("Pitch", osc.pENV, "rgba(233, 69, 96, 0.9)"));
+      }
+
+      card.appendChild(envRow);
+
+      // Modulation badges
+      const mods = [];
+      if (osc.gLFO && osc.gLFO !== false) {
+        mods.push(`Gain LFO: ${osc.gLFO.type} ${osc.gLFO.frequency.toFixed(1)}Hz`);
+      }
+      if (osc.fLFO && osc.fLFO !== false) {
+        mods.push(`Filter LFO: ${osc.fLFO.type} ${osc.fLFO.frequency.toFixed(1)}Hz`);
+      }
+      if (osc.pLFO && osc.pLFO !== false) {
+        mods.push(`Pitch LFO: ${osc.pLFO.type} ${osc.pLFO.frequency.toFixed(1)}Hz`);
+      }
+      if (osc.FM && osc.FM !== false) {
+        mods.push(`FM: ${osc.FM.type} depth:${osc.FM.depth.toFixed(0)}`);
+      }
+      if (osc.dist) {
+        mods.push(`Distortion: ${osc.dist.oversample || "none"}`);
+      }
+
+      if (mods.length > 0) {
+        const modRow = document.createElement("div");
+        modRow.className = "mod-badges";
+        mods.forEach(m => {
+          const badge = document.createElement("span");
+          badge.className = "osc-badge mod";
+          badge.textContent = m;
+          modRow.appendChild(badge);
+        });
+        card.appendChild(modRow);
+      }
+
+      container.appendChild(card);
+    });
+
+    // Effects chain (shared across all oscs)
+    const fx = inst.oscs[0] && inst.oscs[0].fx;
+    if (fx && (fx.del || fx.verb)) {
+      const fxRow = document.createElement("div");
+      fxRow.className = "fx-chain";
+
+      const fxLabel = document.createElement("span");
+      fxLabel.className = "fx-chain-label";
+      fxLabel.textContent = "Effects:";
+      fxRow.appendChild(fxLabel);
+
+      if (fx.del) {
+        const delBadge = document.createElement("span");
+        delBadge.className = "osc-badge fx";
+        delBadge.textContent = `Delay ${(fx.del.time * 1000).toFixed(0)}ms fb:${(fx.del.feedback * 100).toFixed(0)}%`;
+        fxRow.appendChild(delBadge);
+      }
+      if (fx.verb) {
+        const verbBadge = document.createElement("span");
+        verbBadge.className = "osc-badge fx";
+        verbBadge.textContent = `Reverb ${fx.verb.duration.toFixed(1)}s decay:${(fx.verb.decay * 100).toFixed(0)}%`;
+        fxRow.appendChild(verbBadge);
+      }
+      container.appendChild(fxRow);
+    }
+  },
+
+  createEnvBlock(label, adsr, color) {
+    const block = document.createElement("div");
+    block.className = "env-block";
+
+    const lbl = document.createElement("div");
+    lbl.className = "env-label";
+    lbl.textContent = label;
+    block.appendChild(lbl);
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "adsr-canvas";
+    block.appendChild(canvas);
+
+    // Draw after DOM insertion via rAF
+    requestAnimationFrame(() => this.drawADSR(canvas, adsr, color));
+    return block;
+  },
+
+  drawADSR(canvas, adsr, color) {
+    if (!canvas.clientWidth) return;
+    canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
+    canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    ctx.scale(dpr, dpr);
+
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const pad = 4;
+    const drawW = w - pad * 2;
+    const drawH = h - pad * 2;
+
+    // ADSR: {A: [time, level], D: [time, level], S: [time, level], R: [time, level]}
+    const aTime = adsr.A[0], aLevel = adsr.A[1];
+    const dTime = adsr.D[0], dLevel = adsr.D[1];
+    const sTime = adsr.S[0], sLevel = adsr.S[1];
+    const rTime = adsr.R[0], rLevel = adsr.R[1];
+
+    const totalTime = aTime + dTime + sTime + rTime;
+    if (totalTime === 0) return;
+
+    const timeToX = (t) => pad + (t / totalTime) * drawW;
+    const levelToY = (l) => pad + drawH - (l * drawH);
+
+    // Build points
+    const points = [
+      [pad, levelToY(0)],                                      // Start at 0
+      [timeToX(aTime), levelToY(aLevel)],                      // Attack peak
+      [timeToX(aTime + dTime), levelToY(dLevel)],              // Decay
+      [timeToX(aTime + dTime + sTime), levelToY(sLevel)],      // Sustain
+      [timeToX(totalTime), levelToY(rLevel)],                  // Release
+    ];
+
+    // Fill area
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i][0], points[i][1]);
+    }
+    ctx.lineTo(points[points.length - 1][0], levelToY(0));
+    ctx.lineTo(points[0][0], levelToY(0));
+    ctx.closePath();
+    ctx.fillStyle = color.replace(/[\d.]+\)$/, "0.15)");
+    ctx.fill();
+
+    // Draw line
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i][0], points[i][1]);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Phase labels
+    ctx.font = "9px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.textAlign = "center";
+    const labels = ["A", "D", "S", "R"];
+    const xMids = [
+      (points[0][0] + points[1][0]) / 2,
+      (points[1][0] + points[2][0]) / 2,
+      (points[2][0] + points[3][0]) / 2,
+      (points[3][0] + points[4][0]) / 2,
+    ];
+    for (let i = 0; i < 4; i++) {
+      if (xMids[i] - (i > 0 ? xMids[i-1] : pad) > 12) {
+        ctx.fillText(labels[i], xMids[i], h - 2);
+      }
+    }
   },
 };
 

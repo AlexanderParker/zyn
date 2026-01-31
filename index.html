@@ -15,6 +15,9 @@
 
       <!-- Piano Section - Always Visible -->
       <section class="piano-section">
+        <div id="oscilloscopeContainer" class="oscilloscope-container">
+          <canvas id="oscilloscopeCanvas"></canvas>
+        </div>
         <div class="piano" id="pianoKeyboard"></div>
         <div class="controls-panel">
           <div class="control-group">
@@ -34,6 +37,7 @@
             <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 140px;" />
           </div>
           <div class="control-group">
+            <button id="scopeToggle" class="btn-secondary btn-sm">Scope</button>
             <button id="stopAllButton" class="btn-danger">Stop All</button>
           </div>
         </div>
@@ -67,25 +71,24 @@
           <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
         </div>
 
-        <div id="typeRadios">
-          <label style="margin-bottom: var(--space-2); display: block;">Type:</label>
-          <div class="type-radios">
-            <label class="type-radio"><input type="radio" name="instrumentType" value="any" checked /> Any</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="0" /> Pad</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="1" /> Lead</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="2" /> Bass</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="3" /> Key</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="4" /> Pluck</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="5" /> Bell</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="6" /> String</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="7" /> Drum</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="8" /> Perc</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX</label>
+        <div class="generator-row">
+          <div id="typeRadios" style="flex: 1;">
+            <label style="margin-bottom: var(--space-2); display: block;">Type:</label>
+            <div class="type-radios">
+              <label class="type-radio"><input type="radio" name="instrumentType" value="any" checked /> Any</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="0" /> Pad</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="1" /> Lead</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="2" /> Bass</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="3" /> Key</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="4" /> Pluck</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="5" /> Bell</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="6" /> String</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="7" /> Drum</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="8" /> Perc</label>
+              <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX</label>
+            </div>
           </div>
-        </div>
-
-        <div style="margin-top: var(--space-4);">
-          <button id="randomInstrumentButton">Generate Random</button>
+          <button id="randomInstrumentButton" class="btn-success">Generate Random</button>
         </div>
 
         <div class="divider">
@@ -97,8 +100,9 @@
         </div>
 
         <div class="divider">
+          <div id="instrumentVisualizer" class="instrument-viz"></div>
           <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
-            View Instrument Structure (JSON)
+            View Raw JSON
           </div>
           <div class="tab-help-content">
             <pre id="instrumentJson"></pre>
