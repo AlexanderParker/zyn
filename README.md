@@ -17,7 +17,7 @@ It could be useful for small code-golf projects, js13k etc. It's not designed to
 
 ## Demo
 
-Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=4044828069). It provides an interactive interface to explore instruments with:
+Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=3703184240). It provides an interactive interface to explore instruments with:
 
 - On-screen piano keyboard (mouse/touch)
 - Computer keyboard input (QWERTY layout, Q = middle C)
