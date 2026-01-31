@@ -6,200 +6,879 @@
     <title>Zyn Demo</title>
     <script src="./Z.js"></script>
     <style>
+      /* =============================================
+         CSS CUSTOM PROPERTIES
+         ============================================= */
+      :root {
+        /* Background Colors */
+        --bg-page: #0f0f1a;
+        --bg-container: #1a1a2e;
+        --bg-section: #16213e;
+        --bg-input: #0f3460;
+        --bg-hover: rgba(255,255,255,0.05);
+
+        /* Accent Colors */
+        --accent-primary: #e94560;
+        --accent-primary-hover: #ff6b6b;
+        --accent-secondary: #00d9ff;
+        --accent-secondary-hover: #40e0ff;
+        --accent-success: #00c853;
+        --accent-success-hover: #00e676;
+        --accent-warning: #ffab00;
+        --accent-warning-hover: #ffc107;
+        --accent-danger: #ff1744;
+        --accent-danger-hover: #ff5252;
+        --accent-neutral: #4a5568;
+
+        /* Text Colors */
+        --text-primary: #ffffff;
+        --text-secondary: rgba(255,255,255,0.7);
+        --text-muted: rgba(255,255,255,0.5);
+
+        /* Borders & Shadows */
+        --border-color: rgba(255,255,255,0.1);
+        --shadow-sm: 0 2px 4px rgba(0,0,0,0.3);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+        --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+
+        /* Spacing */
+        --space-1: 0.25rem;
+        --space-2: 0.5rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.5rem;
+        --space-6: 2rem;
+
+        /* Border Radius */
+        --radius-sm: 4px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+      }
+
+      /* =============================================
+         BASE STYLES
+         ============================================= */
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         line-height: 1.6;
         margin: 0;
-        padding: 20px;
-        background-color: #f4f4f4;
+        padding: var(--space-5);
+        background: var(--bg-page);
+        color: var(--text-primary);
+        min-height: 100vh;
       }
+
       .container {
-        max-width: 800px;
+        max-width: 960px;
         margin: 0 auto;
-        background-color: #fff;
-        padding: 20px;
-        border-radius: 5px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        background: var(--bg-container);
+        padding: var(--space-6);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-lg);
       }
-      h1,
+
+      /* =============================================
+         TYPOGRAPHY
+         ============================================= */
+      h1 {
+        color: var(--text-primary);
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 0 var(--space-2) 0;
+        background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
       h2 {
-        color: #333;
+        color: var(--text-primary);
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: var(--space-6) 0 var(--space-4) 0;
+        padding-bottom: var(--space-3);
+        border-bottom: 1px solid var(--border-color);
       }
-      .editor {
-        margin-top: 20px;
+
+      p {
+        color: var(--text-secondary);
+        margin: 0 0 var(--space-4) 0;
       }
+
+      a {
+        color: var(--accent-secondary);
+        text-decoration: none;
+        transition: color 0.2s ease;
+      }
+
+      a:hover {
+        color: var(--accent-secondary-hover);
+      }
+
+      strong {
+        color: var(--text-primary);
+      }
+
+      /* =============================================
+         FORM CONTROLS
+         ============================================= */
       label {
         display: inline-block;
-        margin-bottom: 5px;
+        margin-bottom: var(--space-1);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
       }
-      select,
-      input,
-      button {
-        margin-bottom: 10px;
-        padding: 5px;
+
+      select, input[type="text"], input[type="number"] {
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        padding: var(--space-2) var(--space-3);
+        font-size: 0.875rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
       }
-      button {
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        padding: 10px 15px;
+
+      select:focus, input[type="text"]:focus, input[type="number"]:focus {
+        outline: none;
+        border-color: var(--accent-secondary);
+        box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.2);
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        background: var(--bg-input);
+        border-radius: 999px;
+        height: 6px;
         cursor: pointer;
-        border-radius: 3px;
       }
-      button:hover,
-      button:focus {
-        background-color: #45a049;
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        background: var(--accent-secondary);
+        border-radius: 50%;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      #instrumentJson {
-        background-color: #f8f8f8;
-        border: 1px solid #ddd;
-        padding: 10px;
-        border-radius: 3px;
-        white-space: pre-wrap;
-        word-wrap: break-word;
+
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+        box-shadow: 0 0 8px var(--accent-secondary);
       }
-      .github-link {
+
+      input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        background: var(--accent-secondary);
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+      }
+
+      /* =============================================
+         BUTTONS
+         ============================================= */
+      button {
         display: inline-flex;
         align-items: center;
-        text-decoration: none;
-        color: #333;
-        margin-top: 20px;
-      }
-      .github-link img {
-        width: 24px;
-        height: 24px;
-        margin-right: 10px;
-      }
-      .collapsible {
-        background-color: #777;
-        color: white;
-        cursor: pointer;
-        padding: 18px;
-        width: 100%;
+        justify-content: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4);
+        font-family: inherit;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        background: var(--accent-primary);
         border: none;
-        text-align: left;
-        outline: none;
-        font-size: 15px;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
       }
-      .active,
-      .collapsible:hover,
-      .collapsible:focus {
-        background-color: #555;
+
+      button:hover:not(:disabled) {
+        background: var(--accent-primary-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
       }
-      .content {
-        padding: 0 18px;
-        display: none;
-        overflow: hidden;
-        background-color: #f1f1f1;
+
+      button:active:not(:disabled) {
+        transform: translateY(0);
       }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      button.btn-secondary {
+        background: var(--accent-neutral);
+      }
+
+      button.btn-secondary:hover:not(:disabled) {
+        background: #5a6a7a;
+      }
+
+      button.btn-success {
+        background: var(--accent-success);
+      }
+
+      button.btn-success:hover:not(:disabled) {
+        background: var(--accent-success-hover);
+      }
+
+      button.btn-danger {
+        background: var(--accent-danger);
+      }
+
+      button.btn-danger:hover:not(:disabled) {
+        background: var(--accent-danger-hover);
+      }
+
+      button.btn-warning {
+        background: var(--accent-warning);
+        color: #000;
+      }
+
+      button.btn-warning:hover:not(:disabled) {
+        background: var(--accent-warning-hover);
+      }
+
+      button.btn-info {
+        background: var(--accent-secondary);
+        color: #000;
+      }
+
+      button.btn-info:hover:not(:disabled) {
+        background: var(--accent-secondary-hover);
+      }
+
+      .btn-sm, select.btn-sm {
+        padding: var(--space-1) var(--space-2);
+        font-size: 0.75rem;
+      }
+
+      /* (Collapsible sections replaced by tab interface) */
+
+      /* =============================================
+         NOTICE
+         ============================================= */
       .notice {
-        background-color: #fff3cd;
-        border: 1px solid #ffeeba;
-        color: #856404;
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: rgba(255, 171, 0, 0.1);
+        border: 1px solid rgba(255, 171, 0, 0.3);
+        border-left: 4px solid var(--accent-warning);
+        border-radius: var(--radius-md);
+        margin: var(--space-5) 0;
+        color: var(--text-secondary);
       }
+
       .notice strong {
-        color: #e17055;
+        color: var(--accent-warning);
       }
-      .preset-section {
-        margin-bottom: 20px;
+
+      /* =============================================
+         PIANO KEYBOARD
+         ============================================= */
+      .piano-section {
+        padding: var(--space-4);
+        background: var(--bg-section);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
       }
-      .preset-accordion {
-        margin-top: 10px;
-      }
-      .preset-type-header {
-        background-color: #6c757d;
-        color: white;
-        cursor: pointer;
-        padding: 10px 15px;
-        width: 100%;
+
+      .piano-section .controls-panel {
+        margin-top: var(--space-3);
+        background: transparent;
         border: none;
-        text-align: left;
-        font-size: 14px;
-        margin-top: 2px;
+        padding: var(--space-3) 0 0 0;
       }
-      .preset-type-header:hover,
-      .preset-type-header:focus {
-        background-color: #5a6268;
+
+      .piano {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-4);
+        background: linear-gradient(180deg, #2d2d3d 0%, #1a1a2a 100%);
+        border-radius: var(--radius-lg);
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), var(--shadow-md);
       }
-      .preset-type-header.active {
-        background-color: #495057;
+
+      .key {
+        position: relative;
+        width: 44px;
+        height: 140px;
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 1px solid #bbb;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+        margin: 0 1px;
+        cursor: pointer;
+        transition: all 0.08s ease-out;
+        box-shadow: 0 4px 0 rgba(0,0,0,0.2), 0 6px 8px rgba(0,0,0,0.15);
       }
-      .preset-type-content {
-        display: none;
-        background-color: #f8f9fa;
-        padding: 10px;
+
+      .key:hover {
+        background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
       }
-      .preset-item {
+
+      .key.pressed {
+        background: linear-gradient(180deg, #dee2e6 0%, #ced4da 100%);
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.1);
+      }
+
+      .key.black {
+        width: 28px;
+        height: 90px;
+        background: linear-gradient(180deg, #343a40 0%, #212529 100%);
+        border: none;
+        margin-left: -14px;
+        margin-right: -14px;
+        z-index: 2;
+        box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 8px rgba(0,0,0,0.3);
+      }
+
+      .key.black:hover {
+        background: linear-gradient(180deg, #495057 0%, #343a40 100%);
+      }
+
+      .key.black.pressed {
+        background: linear-gradient(180deg, #495057 0%, #343a40 100%);
+        transform: translateY(2px);
+        box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+      }
+
+      /* =============================================
+         CONTROLS PANEL
+         ============================================= */
+      .controls-panel {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-4);
+        margin-top: var(--space-4);
+        padding: var(--space-4);
+        background: var(--bg-section);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+      }
+
+      .control-group {
         display: flex;
         align-items: center;
+        gap: var(--space-3);
+      }
+
+      .control-group label {
+        margin: 0;
+      }
+
+      /* =============================================
+         TABS
+         ============================================= */
+      .tab-nav {
+        display: flex;
+        gap: var(--space-1);
+        padding: var(--space-2);
+        background: var(--bg-section);
+        border-radius: var(--radius-lg);
+        margin-top: var(--space-4);
+        overflow-x: auto;
+      }
+
+      .tab-btn {
+        padding: var(--space-3) var(--space-4);
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .tab-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+        transform: none;
+        box-shadow: none;
+      }
+
+      .tab-btn.active {
+        background: var(--accent-primary);
+        color: var(--text-primary);
+      }
+
+      .tab-btn.active:hover {
+        background: var(--accent-primary-hover);
+      }
+
+      .tab-content {
+        display: none;
+        padding: var(--space-4);
+        background: var(--bg-section);
+        border-radius: var(--radius-lg);
+        margin-top: var(--space-3);
+        border: 1px solid var(--border-color);
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      .tab-help {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        padding: var(--space-3);
+        background: var(--bg-input);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-4);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.2s ease;
+      }
+
+      .tab-help:hover {
+        background: var(--bg-hover);
+      }
+
+      .tab-help::after {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-right: 2px solid var(--text-muted);
+        border-bottom: 2px solid var(--text-muted);
+        transform: rotate(-45deg);
+        transition: transform 0.3s ease;
+        flex-shrink: 0;
+      }
+
+      .tab-help.expanded::after {
+        transform: rotate(45deg);
+      }
+
+      .tab-help-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease, margin 0.3s ease;
+      }
+
+      .tab-help-content.show {
+        max-height: 2000px;
+        overflow-y: auto;
+        margin-bottom: var(--space-4);
+      }
+
+      .tab-help-content ul {
+        margin: var(--space-3) 0 0 0;
+        padding-left: var(--space-5);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+      }
+
+      .tab-help-content li {
+        margin-bottom: var(--space-2);
+      }
+
+      /* =============================================
+         CLIPS SECTION
+         ============================================= */
+      .clips-section {
+        margin-top: var(--space-4);
+        padding: var(--space-4);
+        background: var(--bg-section);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+      }
+
+      .clips-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-3);
+        padding-bottom: var(--space-3);
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .clips-header strong {
+        font-size: 1rem;
+      }
+
+      .storage-indicator {
+        font-size: 0.75rem;
+        padding: var(--space-1) var(--space-2);
+        background: var(--bg-input);
+        border-radius: var(--radius-sm);
+        color: var(--text-muted);
+      }
+
+      .clip-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        background: var(--bg-container);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        margin: var(--space-2) 0;
+        transition: border-color 0.2s ease;
+      }
+
+      .clip-item:hover {
+        border-color: var(--accent-secondary);
+      }
+
+      .clip-item audio {
+        flex: 1;
+        height: 36px;
+        min-width: 150px;
+      }
+
+      /* =============================================
+         INSTRUMENT GENERATOR
+         ============================================= */
+      .type-radios {
+        display: flex;
         flex-wrap: wrap;
-        padding: 8px;
-        margin: 4px 0;
-        background-color: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        gap: 6px;
+        gap: var(--space-2);
+        margin: var(--space-3) 0;
+        padding: var(--space-3);
+        background: var(--bg-section);
+        border-radius: var(--radius-md);
       }
+
+      .type-radio {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-2) var(--space-3);
+        background: var(--bg-input);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+      }
+
+      .type-radio:hover {
+        background: var(--bg-hover);
+        border-color: var(--border-color);
+      }
+
+      .type-radio:has(input:checked) {
+        background: var(--accent-primary);
+        color: var(--text-primary);
+        border-color: var(--accent-primary);
+      }
+
+      .type-radio input {
+        accent-color: var(--accent-secondary);
+      }
+
+      /* =============================================
+         PRESETS
+         ============================================= */
+      .preset-section {
+        margin-bottom: var(--space-5);
+      }
+
+      .preset-accordion {
+        margin-top: var(--space-4);
+      }
+
+      .preset-type-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: var(--bg-section);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        margin-top: var(--space-2);
+        transition: all 0.2s ease;
+      }
+
+      .preset-type-header:hover, .preset-type-header:focus {
+        background: var(--bg-hover);
+        border-color: var(--accent-secondary);
+        outline: none;
+      }
+
+      .preset-type-header.active {
+        background: var(--bg-input);
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+      }
+
+      .preset-type-header .count {
+        background: var(--accent-secondary);
+        color: #000;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .preset-type-content {
+        display: none;
+        background: var(--bg-section);
+        padding: var(--space-3);
+        border: 1px solid var(--border-color);
+        border-top: none;
+        border-radius: 0 0 var(--radius-md) var(--radius-md);
+        margin-top: -1px;
+      }
+
+      .preset-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: var(--space-3);
+      }
+
+      .preset-item {
+        display: flex;
+        flex-direction: column;
+        padding: var(--space-3);
+        background: var(--bg-container);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        gap: var(--space-2);
+        transition: all 0.2s ease;
+      }
+
       .preset-item:hover {
-        background-color: #e9ecef;
+        border-color: var(--accent-secondary);
+        box-shadow: var(--shadow-sm);
       }
+
+      .preset-item-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
       .preset-controls {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: var(--space-2);
         width: 100%;
-        margin-top: 4px;
+        margin-top: var(--space-2);
+        flex-wrap: wrap;
       }
+
       .preset-controls label {
-        font-size: 11px;
-        color: #666;
+        font-size: 0.75rem;
+        color: var(--text-muted);
         margin: 0;
       }
+
       .preset-volume {
         width: 80px;
       }
+
       .preset-name {
         flex: 1;
         cursor: pointer;
         font-weight: 500;
+        color: var(--text-primary);
+        transition: color 0.2s ease;
       }
+
+      .preset-name:hover {
+        color: var(--accent-secondary);
+      }
+
       .preset-seed {
-        color: #6c757d;
-        font-family: monospace;
-        font-size: 12px;
+        color: var(--text-muted);
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.75rem;
       }
+
       .preset-btn {
-        padding: 4px 8px;
-        font-size: 11px;
+        padding: var(--space-1) var(--space-2);
+        font-size: 0.7rem;
         margin: 0;
       }
+
       .preset-btn.copy {
-        background-color: #17a2b8;
-      }
-      .preset-btn.rename {
-        background-color: #ffc107;
+        background: var(--accent-secondary);
         color: #000;
       }
-      .preset-btn.delete {
-        background-color: #dc3545;
+
+      .preset-btn.rename {
+        background: var(--accent-warning);
+        color: #000;
       }
+
+      .preset-btn.delete {
+        background: var(--accent-danger);
+      }
+
       .save-preset-row {
         display: flex;
-        gap: 8px;
-        margin-bottom: 15px;
+        gap: var(--space-3);
+        margin-bottom: var(--space-4);
       }
+
       .save-preset-row input {
         flex: 1;
-        padding: 8px;
       }
+
       .no-presets {
-        color: #6c757d;
+        color: var(--text-muted);
         font-style: italic;
-        padding: 10px;
+        padding: var(--space-4);
+        text-align: center;
       }
+
+      /* =============================================
+         MIDI CHANNELS
+         ============================================= */
+      .channel-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        background: var(--bg-container);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        margin: var(--space-2) 0;
+        transition: all 0.2s ease;
+      }
+
+      .channel-row:hover {
+        border-color: var(--accent-secondary);
+      }
+
+      .channel-row.active {
+        border-left: 3px solid var(--accent-secondary);
+        background: var(--bg-hover);
+      }
+
+      .channel-label {
+        min-width: 80px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+
+      .channel-activity {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--bg-input);
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+      }
+
+      .channel-activity.on {
+        background: var(--accent-success);
+        box-shadow: 0 0 8px var(--accent-success);
+      }
+
+      .channel-activity.off {
+        background: var(--accent-danger);
+        box-shadow: 0 0 8px var(--accent-danger);
+      }
+
+      .channel-input {
+        flex: 1;
+        min-width: 120px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.75rem;
+      }
+
+      .set-active-btn {
+        padding: var(--space-1) var(--space-2);
+        font-size: 0.75rem;
+        background: var(--accent-secondary);
+        color: #000;
+        margin: 0;
+      }
+
+      .set-active-btn:hover:not(:disabled) {
+        background: var(--accent-secondary-hover);
+      }
+
+      .set-active-btn:disabled {
+        background: var(--accent-success);
+        opacity: 1;
+        cursor: default;
+      }
+
+      .clear-btn {
+        padding: var(--space-1) var(--space-2);
+        font-size: 0.75rem;
+        background: var(--accent-danger);
+        margin: 0;
+      }
+
+      /* =============================================
+         INSTRUMENT JSON
+         ============================================= */
+      #instrumentJson {
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        color: var(--text-secondary);
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow: auto;
+        max-height: 400px;
+        margin: var(--space-3) 0 0 0;
+      }
+
+      /* =============================================
+         FOOTER
+         ============================================= */
+      .github-link {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        color: var(--text-secondary);
+        margin-top: var(--space-5);
+        padding: var(--space-3) var(--space-4);
+        background: var(--bg-section);
+        border-radius: var(--radius-md);
+        transition: all 0.2s ease;
+      }
+
+      .github-link:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+
+      .github-link img {
+        width: 24px;
+        height: 24px;
+        margin-right: var(--space-3);
+        filter: invert(1);
+      }
+
+      /* =============================================
+         UTILITY CLASSES
+         ============================================= */
       .sr-only {
         position: absolute;
         width: 1px;
@@ -211,59 +890,109 @@
         white-space: nowrap;
         border-width: 0;
       }
-      .piano {
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
+
+      .divider {
+        border-top: 1px solid var(--border-color);
+        margin: var(--space-4) 0;
+        padding-top: var(--space-4);
       }
-      .key {
-        width: 40px;
-        height: 120px;
-        border: 1px solid #000;
-        background-color: #fff;
-        margin: 0 2px;
-        cursor: pointer;
+
+      /* =============================================
+         ANIMATIONS
+         ============================================= */
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
       }
-      .key.black {
-        width: 30px;
-        height: 80px;
-        background-color: #000;
-        margin-left: -15px;
-        margin-right: -15px;
-        z-index: 1;
+
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 4px currentColor; }
+        50% { box-shadow: 0 0 12px currentColor; }
       }
-      .key.pressed {
-        background-color: #ddd;
+
+      .recording-pulse {
+        animation: pulse 1s infinite;
       }
-      .key.black.pressed {
-        background-color: #444;
+
+      /* =============================================
+         RESPONSIVE
+         ============================================= */
+      @media (max-width: 768px) {
+        body {
+          padding: var(--space-3);
+        }
+
+        .container {
+          padding: var(--space-4);
+          border-radius: var(--radius-lg);
+        }
+
+        h1 {
+          font-size: 1.5rem;
+        }
+
+        .controls-panel {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .control-group {
+          justify-content: space-between;
+        }
+
+        .piano {
+          overflow-x: auto;
+          justify-content: flex-start;
+          padding: var(--space-3);
+        }
+
+        .key {
+          width: 36px;
+          height: 120px;
+          flex-shrink: 0;
+        }
+
+        .key.black {
+          width: 24px;
+          height: 75px;
+          margin-left: -12px;
+          margin-right: -12px;
+        }
+
+        .channel-row {
+          flex-wrap: wrap;
+        }
+
+        .channel-input {
+          width: 100%;
+          order: 10;
+          margin-top: var(--space-2);
+        }
+
+        .clip-item {
+          flex-wrap: wrap;
+        }
+
+        .clip-item audio {
+          width: 100%;
+          order: 10;
+          margin-top: var(--space-2);
+        }
       }
-      .type-radio {
-        display: inline-block;
-        margin: 4px 8px 4px 0;
-        cursor: pointer;
-      }
-      .type-radio input {
-        margin-right: 3px;
-      }
-      #stopAllButton:hover,
-      #stopAllButton:focus {
-        background-color: #c0392b;
-      }
-      .set-active-btn {
-        padding: 3px 8px;
-        font-size: 11px;
-        background-color: #007bff;
-        margin: 0;
-      }
-      .set-active-btn:hover:not(:disabled),
-      .set-active-btn:focus:not(:disabled) {
-        background-color: #0056b3;
-      }
-      .set-active-btn:disabled {
-        background-color: #28a745;
-        opacity: 1;
-        cursor: default;
+
+      @media (max-width: 480px) {
+        .save-preset-row {
+          flex-direction: column;
+        }
+
+        .type-radios {
+          gap: var(--space-1);
+        }
+
+        .type-radio {
+          padding: var(--space-1) var(--space-2);
+          font-size: 0.75rem;
+        }
       }
     </style>
   </head>
@@ -271,147 +1000,239 @@
     <div class="container">
       <header>
         <h1>Zyn Demo</h1>
-        <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-          <button id="enableMidiButton" style="background-color: #6c757d;">Enable MIDI</button>
-          <span id="midiStatusWrapper" style="display: none; align-items: center; gap: 6px; border: 2px solid #28a745; border-radius: 4px; padding: 4px 10px; font-size: 13px;">
-            <span id="midiDot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #28a745;"></span>
-            <span>MIDI: <span id="midiStatus"></span></span>
-            <button id="disableMidiButton" style="background-color: #dc3545; padding: 2px 8px; font-size: 11px; margin: 0 0 0 6px;">Disable</button>
-          </span>
-        </div>
       </header>
-      <main>
-        <p>Welcome to the Zyn Demo!</p>
-        <p>
-          Zyn is a small JS audio synthesizer which clocks in at around 8.8kb (~3.2kb gzipped). You can read all about it on GitHub
-          <a href="https://github.com/AlexanderParker/zyn">here</a>.
-        </p>
-        <p>
-          This interactive tool allows you to explore procedurally generated synthesizer instruments. Use your computer keyboard, MIDI controller, or the on-screen piano
-          to play notes and experiment with different instrument seeds. There are 10 instrument types (pad, lead, bass, key, pluck, bell, string, drum, perc, fx)
-          determined by the last digit of the seed.
-        </p>
-        <button type="button" class="collapsible" aria-expanded="false" aria-controls="howToUseContent">How to use</button>
-        <div id="howToUseContent" class="content" aria-hidden="true">
+
+      <!-- Piano Section - Always Visible -->
+      <section class="piano-section">
+        <div class="piano" id="pianoKeyboard"></div>
+        <div class="controls-panel">
+          <div class="control-group">
+            <label for="octaveSelect">Octave</label>
+            <select id="octaveSelect">
+              <option value="-3">-3</option>
+              <option value="-2">-2</option>
+              <option value="-1">-1</option>
+              <option value="0" selected>0</option>
+              <option value="1">+1</option>
+              <option value="2">+2</option>
+              <option value="3">+3</option>
+            </select>
+          </div>
+          <div class="control-group" style="flex: 1;">
+            <label for="mainVolume" id="mainVolumeLabel">Volume: 100%</label>
+            <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 140px;" />
+          </div>
+          <div class="control-group">
+            <button id="stopAllButton" class="btn-danger">Stop All</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="about">About</button>
+        <button class="tab-btn" data-tab="presets">Presets</button>
+        <button class="tab-btn" data-tab="instrument">Instrument</button>
+        <button class="tab-btn" data-tab="recording">Recording</button>
+        <button class="tab-btn" data-tab="midi">MIDI</button>
+      </nav>
+
+      <!-- Tab: Instrument -->
+      <div id="tab-instrument" class="tab-content">
+        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+          How to use the Instrument Generator
+        </div>
+        <div class="tab-help-content">
           <ul>
-            <li><strong>Play notes:</strong> Use QWERTY keys on your keyboard (Q is middle C), click the on-screen piano, or connect a MIDI controller</li>
-            <li><strong>Change octave:</strong> Use the dropdown or Page Up/Down keys (also applies to MIDI input)</li>
-            <li><strong>Adjust volume:</strong> Use the volume slider (0-500%) to control output level</li>
             <li><strong>Generate instruments:</strong> Select a type and click "Generate Random", or enter a seed number directly</li>
             <li><strong>Browse seeds:</strong> Use + and - keys to cycle through instrument seeds</li>
-            <li><strong>Stop sound:</strong> Press Escape or click "Stop All"</li>
-            <li><strong>Record audio:</strong> Click "Record" to arm recording (turns yellow), then play notes to start capturing. Click "Stop Rec" or "Stop All" to finish. Clips are auto-saved to browser storage (with quota indicator). Export clips as WAV files. Click clip names to rename.</li>
-            <li><strong>Save presets:</strong> Enter a name and click "Save Current" to save instruments you like</li>
-            <li><strong>Manage presets:</strong> Presets save octave and volume settings, and can be edited in-place</li>
-            <li><strong>Export/Import:</strong> Back up your presets to a JSON file or share them with others</li>
-            <li><strong>MIDI support:</strong> Click "Enable MIDI" to use a connected MIDI keyboard with velocity sensitivity and pedal support (sustain, sostenuto, soft)</li>
-            <li><strong>MIDI channels:</strong> Open the "MIDI Channels" section to configure 16 channels. Click "Set Active" to make a channel active &mdash; keyboard notes, instrument generation, and preset loads all apply to the active channel. Activity dots show note-on (green) and note-off (red) events. Save/load/export/import channel configurations as presets.</li>
+            <li><strong>Instrument types:</strong> There are 10 types (Pad, Lead, Bass, Key, Pluck, Bell, String, Drum, Perc, FX) determined by the last digit of the seed</li>
           </ul>
         </div>
-        <div class="notice" role="alert">
-          <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh. Please listen at a safe and comfortable volume to
-          protect your hearing and enjoy the experience.
+
+        <div class="control-group" style="margin-bottom: var(--space-4);">
+          <label for="instrumentSeedInput">Seed</label>
+          <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" style="width: 140px;" />
+          <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
         </div>
-        <h2>Keyboard</h2>
-        <div class="editor">
-          <div class="piano" id="pianoKeyboard"></div>
-          <div style="margin-top: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <span>
-              <label for="octaveSelect">Octave</label>
-              <select id="octaveSelect">
-                <option value="-3">-3</option>
-                <option value="-2">-2</option>
-                <option value="-1">-1</option>
-                <option value="0" selected>0</option>
-                <option value="1">+1</option>
-                <option value="2">+2</option>
-                <option value="3">+3</option>
-              </select>
-            </span>
-            <span style="display: flex; align-items: center; gap: 5px;">
-              <label for="mainVolume" id="mainVolumeLabel">Volume: 100%</label>
-              <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 120px;" />
-            </span>
-            <button id="stopAllButton" style="background-color: #e74c3c;">Stop All</button>
-            <button id="recordButton" style="background-color: #6c757d;">Record</button>
-            <span id="recordingSize" style="font-size: 12px; color: #dc3545; display: none;"></span>
-          </div>
-          <div id="clipsSection" style="display: none; margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong>Recorded Clips</strong>
-              <span id="storageIndicator" style="font-size: 11px; color: #666;"></span>
-            </div>
-            <div id="clipsContainer"></div>
-          </div>
-          <h2>Instrument Generator</h2>
-          <div>
-            <label for="instrumentSeedInput">Instrument Seed</label>
-            <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" />
-            <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
-          </div>
-          <div id="typeRadios" style="margin: 10px 0;">
-            <strong>Type:</strong><br/>
+
+        <div id="typeRadios">
+          <label style="margin-bottom: var(--space-2); display: block;">Type:</label>
+          <div class="type-radios">
             <label class="type-radio"><input type="radio" name="instrumentType" value="any" checked /> Any</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="0" /> Pad (0)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="1" /> Lead (1)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="2" /> Bass (2)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="3" /> Key (3)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="4" /> Pluck (4)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="5" /> Bell (5)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="6" /> String (6)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="7" /> Drum (7)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="8" /> Perc (8)</label>
-            <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX (9)</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="0" /> Pad</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="1" /> Lead</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="2" /> Bass</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="3" /> Key</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="4" /> Pluck</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="5" /> Bell</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="6" /> String</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="7" /> Drum</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="8" /> Perc</label>
+            <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX</label>
           </div>
-          <div>
-            <button id="randomInstrumentButton">Generate Random</button>
+        </div>
+
+        <div style="margin-top: var(--space-4);">
+          <button id="randomInstrumentButton">Generate Random</button>
+        </div>
+
+        <div class="divider">
+          <label style="margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);">Save as Preset</label>
+          <div class="save-preset-row">
+            <input type="text" id="presetNameInput" placeholder="Enter preset name..." />
+            <button id="savePresetButton" class="btn-success">Save Current</button>
           </div>
-          <button type="button" class="collapsible" aria-expanded="false" aria-controls="midiChannelsContent">MIDI Channels</button>
-          <div id="midiChannelsContent" class="content" aria-hidden="true">
-            <div id="midiChannelsSection" style="padding: 10px 0;"></div>
-            <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
-              <div class="save-preset-row">
-                <input type="text" id="channelPresetNameInput" placeholder="Enter channel preset name..." />
-                <button id="saveChannelPresetButton">Save Channels</button>
-              </div>
-              <div id="channelPresetsContainer" style="margin-top: 10px;"></div>
-              <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;">
-                <button id="exportChannelPresetsButton" style="background-color: #6c757d;">Export Channel Presets</button>
-                <button id="importChannelPresetsButton" style="background-color: #6c757d;">Import Channel Presets</button>
-                <input type="file" id="importChannelFileInput" accept=".json" style="display: none;" />
-              </div>
-            </div>
+        </div>
+
+        <div class="divider">
+          <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+            View Instrument Structure (JSON)
           </div>
-          <h2>Saved Presets</h2>
-          <div class="preset-section">
-            <div class="save-preset-row">
-              <input type="text" id="presetNameInput" placeholder="Enter preset name..." />
-              <button id="savePresetButton">Save Current</button>
-            </div>
-            <div id="presetAccordion" class="preset-accordion"></div>
-            <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;">
-              <button id="exportPresetsButton" style="background-color: #6c757d;">Export Presets</button>
-              <button id="importPresetsButton" style="background-color: #6c757d;">Import Presets</button>
-              <input type="file" id="importFileInput" accept=".json" style="display: none;" />
-            </div>
-          </div>
-          <h2>Instrument Structure</h2>
-          <p>
-            Expand the section below if you want to see how an instrument is represented internally. If you wanted to, you could create your own instruments for
-            the synth instead of using the random generator by following this format. This format is explained on <a href="https://github.com/AlexanderParker/zyn">GitHub</a>.
-          </p>
-          <button type="button" class="collapsible" aria-expanded="false" aria-controls="instrumentStructure">Instrument Structure</button>
-          <div id="instrumentStructure" class="content" aria-hidden="true">
+          <div class="tab-help-content">
             <pre id="instrumentJson"></pre>
           </div>
         </div>
-      </main>
-      <footer>
-        <a href="https://github.com/AlexanderParker/zyn" class="github-link">
-          <img src="https://github.com/favicon.ico" alt="" />
-          View on GitHub
-        </a>
-      </footer>
+      </div>
+
+      <!-- Tab: Presets -->
+      <div id="tab-presets" class="tab-content">
+        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+          How to use Presets
+        </div>
+        <div class="tab-help-content">
+          <ul>
+            <li><strong>Load presets:</strong> Click on a preset name to load it</li>
+            <li><strong>Manage presets:</strong> Presets save octave and volume settings, and can be renamed or deleted</li>
+            <li><strong>Save new presets:</strong> Use "Save Current" on the Instrument tab</li>
+            <li><strong>Export/Import:</strong> Back up your presets to a JSON file or share them with others</li>
+          </ul>
+        </div>
+
+        <div id="presetAccordion" class="preset-accordion"></div>
+
+        <div class="divider" style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
+          <button id="exportPresetsButton" class="btn-secondary">Export Presets</button>
+          <button id="importPresetsButton" class="btn-secondary">Import Presets</button>
+          <input type="file" id="importFileInput" accept=".json" style="display: none;" />
+        </div>
+      </div>
+
+      <!-- Tab: Recording -->
+      <div id="tab-recording" class="tab-content">
+        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+          How to Record Audio
+        </div>
+        <div class="tab-help-content">
+          <ul>
+            <li><strong>Arm recording:</strong> Click "Record" to arm (button turns yellow)</li>
+            <li><strong>Start recording:</strong> Play any note to begin capturing audio</li>
+            <li><strong>Stop recording:</strong> Click "Stop Rec" or press Escape</li>
+            <li><strong>Manage clips:</strong> Clips are auto-saved to browser storage. Click names to rename, export as WAV</li>
+          </ul>
+        </div>
+
+        <div class="control-group" style="margin-bottom: var(--space-4);">
+          <button id="recordButton" class="btn-secondary">Record</button>
+          <span id="recordingSize" style="font-size: 0.875rem; color: var(--accent-danger); display: none;"></span>
+        </div>
+
+        <div id="clipsSection" class="clips-section" style="display: none;">
+          <div class="clips-header">
+            <strong>Recorded Clips</strong>
+            <span id="storageIndicator" class="storage-indicator"></span>
+          </div>
+          <div id="clipsContainer"></div>
+        </div>
+
+        <div id="noClipsMessage" class="no-presets">
+          No recordings yet. Click "Record" to arm, then play notes to start recording.
+        </div>
+      </div>
+
+      <!-- Tab: MIDI -->
+      <div id="tab-midi" class="tab-content">
+        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+          How to use MIDI
+        </div>
+        <div class="tab-help-content">
+          <ul>
+            <li><strong>Enable MIDI:</strong> Click the button below to connect your MIDI controller</li>
+            <li><strong>Channels:</strong> Configure up to 16 MIDI channels with different instruments</li>
+            <li><strong>Active channel:</strong> The on-screen piano and typing keyboard always play on the active channel. Your MIDI controller sends on its own channel (usually channel 1)</li>
+            <li><strong>Force route:</strong> Enable "Route MIDI to active channel" to override the controller's channel and play everything through the active channel instead</li>
+            <li><strong>Activity lights:</strong> Green = note on, Red = note off</li>
+            <li><strong>Channel presets:</strong> Save and load entire channel configurations</li>
+          </ul>
+        </div>
+
+        <div class="control-group" style="margin-bottom: var(--space-4);">
+          <button id="enableMidiButton" class="btn-secondary">Enable MIDI</button>
+          <span id="midiStatusWrapper" class="control-group" style="display: none; border: 2px solid var(--accent-success); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 0.875rem;">
+            <span id="midiDot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 8px var(--accent-success);"></span>
+            <span>MIDI: <span id="midiStatus"></span></span>
+            <button id="disableMidiButton" class="btn-danger btn-sm">Disable</button>
+          </span>
+        </div>
+
+        <div class="control-group" style="margin-bottom: var(--space-4);">
+          <label style="display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; margin: 0;">
+            <input type="checkbox" id="forceRouteToggle" style="accent-color: var(--accent-secondary); width: 16px; height: 16px;" />
+            Route MIDI to active channel
+          </label>
+        </div>
+
+        <h3 style="font-size: 1rem; margin: var(--space-4) 0 var(--space-3) 0; color: var(--text-primary);">Channel Configuration</h3>
+        <div id="midiChannelsSection"></div>
+
+        <div class="divider">
+          <h3 style="font-size: 1rem; margin: 0 0 var(--space-3) 0; color: var(--text-primary);">Channel Presets</h3>
+          <div class="save-preset-row">
+            <input type="text" id="channelPresetNameInput" placeholder="Enter channel preset name..." />
+            <button id="saveChannelPresetButton" class="btn-success">Save Channels</button>
+          </div>
+          <div id="channelPresetsContainer"></div>
+          <div class="divider" style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
+            <button id="exportChannelPresetsButton" class="btn-secondary">Export Channel Presets</button>
+            <button id="importChannelPresetsButton" class="btn-secondary">Import Channel Presets</button>
+            <input type="file" id="importChannelFileInput" accept=".json" style="display: none;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: About -->
+      <div id="tab-about" class="tab-content active">
+        <h2 style="margin-top: 0;">Welcome to Zyn Demo</h2>
+        <p>
+          Zyn is a small JS audio synthesizer which clocks in at around 8.8kb (~3.2kb gzipped).
+          You can read all about it on GitHub <a href="https://github.com/AlexanderParker/zyn">here</a>.
+        </p>
+        <p>
+          This interactive tool allows you to explore procedurally generated synthesizer instruments.
+          Use your computer keyboard, MIDI controller, or the on-screen piano to play notes and
+          experiment with different instrument seeds.
+        </p>
+
+        <div class="notice" role="alert">
+          <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh.
+          Please listen at a safe and comfortable volume to protect your hearing.
+        </div>
+
+        <h3 style="font-size: 1rem; margin: var(--space-5) 0 var(--space-3) 0; color: var(--text-primary);">Keyboard Controls</h3>
+        <ul style="color: var(--text-secondary); padding-left: var(--space-5);">
+          <li><strong>QWERTY keys:</strong> Play notes (Q = middle C)</li>
+          <li><strong>Page Up/Down:</strong> Change octave</li>
+          <li><strong>+ / -:</strong> Browse instrument seeds</li>
+          <li><strong>Escape:</strong> Stop all sounds</li>
+        </ul>
+
+        <div style="margin-top: var(--space-5);">
+          <a href="https://github.com/AlexanderParker/zyn" class="github-link">
+            <img src="https://github.com/favicon.ico" alt="" />
+            View on GitHub
+          </a>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -432,6 +1253,7 @@
         softPedalAmount: 0.5, // Volume multiplier when soft pedal is pressed
         channels: new Array(16).fill(null), // Per-channel instrument assignments
         activeChannel: 0,  // Which channel (0-15) is currently active for keyboard/editing
+        forceRouteToActive: false, // When true, all MIDI input routes to active channel
         channelPresets: [],  // Saved channel configuration presets
         activityTimeouts: {},  // Track timeout IDs for activity light fade
         // Recording state
@@ -457,6 +1279,7 @@
           this.attachEventListeners();
           this.loadStateAndUpdateInstrument();
           this.setupCollapsible();
+          this.setupTabs();
           this.createPianoKeyboard();
           this.renderPresetAccordion();
           this.initChannels();
@@ -464,6 +1287,11 @@
           // Auto-enable MIDI if previously enabled
           if (localStorage.getItem("zynMidiEnabled") === "true") {
             this.initMIDI();
+          }
+          // Restore force-route setting
+          if (localStorage.getItem("zynForceRoute") === "true") {
+            this.forceRouteToActive = true;
+            document.getElementById("forceRouteToggle").checked = true;
           }
           // Warm up audio on first user interaction to eliminate delay
           const warmUpOnce = () => {
@@ -580,6 +1408,7 @@
         },
 
         handleMIDICC(cc, value, channel = 0) {
+          if (this.forceRouteToActive) channel = this.activeChannel;
           // Sustain pedal (CC 64)
           if (cc === 64) {
             const wasPressed = this.sustainPedal[channel];
@@ -610,6 +1439,8 @@
         },
 
         midiNoteOn(note, velocity, channel = 0) {
+          // Force all MIDI input to active channel if enabled
+          if (this.forceRouteToActive) channel = this.activeChannel;
           const key = `${channel}_${note}`;
           // If note is sustained on this channel, release it first
           if (this.sustainedNotes[key]) {
@@ -641,6 +1472,7 @@
         },
 
         midiNoteOff(note, channel = 0) {
+          if (this.forceRouteToActive) channel = this.activeChannel;
           const key = `${channel}_${note}`;
           const voiceId = this.midiNotes[key];
           if (voiceId) {
@@ -774,22 +1606,23 @@
           const container = document.getElementById("midiChannelsSection");
           for (let ch = 0; ch < 16; ch++) {
             const row = document.createElement("div");
-            row.style.cssText = "display: flex; align-items: center; gap: 6px; margin: 4px 0;";
+            row.className = "channel-row";
+            row.id = `channelRow${ch}`;
 
             const label = document.createElement("label");
-            label.style.cssText = "width: 80px; font-size: 13px; flex-shrink: 0;";
+            label.className = "channel-label";
             label.textContent = `Channel ${ch + 1}`;
 
             // Activity light dot
             const activityDot = document.createElement("span");
             activityDot.id = `activityDot${ch}`;
-            activityDot.style.cssText = "display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: transparent; flex-shrink: 0;";
+            activityDot.className = "channel-activity";
 
             const input = document.createElement("input");
             input.type = "text";
             input.id = `midiChannel${ch}`;
             input.readOnly = true;
-            input.style.cssText = "flex: 1; padding: 4px; font-size: 12px; font-family: monospace; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 3px;";
+            input.className = "channel-input";
             input.placeholder = "Unassigned";
 
             // Set Active button
@@ -803,7 +1636,7 @@
             const clearBtn = document.createElement("button");
             clearBtn.id = `clearChannel${ch}`;
             clearBtn.textContent = "Clear";
-            clearBtn.style.cssText = "padding: 3px 6px; font-size: 11px; background-color: #dc3545; margin: 0;";
+            clearBtn.className = "clear-btn";
             clearBtn.title = "Clear channel assignment";
             clearBtn.addEventListener("click", () => this.clearChannel(ch));
 
@@ -865,17 +1698,13 @@
               setActiveBtn.disabled = isActive;
               setActiveBtn.textContent = isActive ? "Active" : "Set Active";
             }
-            const row = input?.parentElement;
+            const row = document.getElementById(`channelRow${ch}`);
             if (row) {
-              row.style.borderLeft = isActive ? "3px solid #007bff" : "3px solid transparent";
-              row.style.paddingLeft = "5px";
+              row.classList.toggle("active", isActive);
             }
             const clearBtn = document.getElementById(`clearChannel${ch}`);
             if (clearBtn) {
-              const disabled = isActive;
-              clearBtn.disabled = disabled;
-              clearBtn.style.opacity = disabled ? "0.4" : "1";
-              clearBtn.style.cursor = disabled ? "default" : "pointer";
+              clearBtn.disabled = isActive;
             }
           }
         },
@@ -921,12 +1750,15 @@
             clearTimeout(this.activityTimeouts[channel]);
             delete this.activityTimeouts[channel];
           }
-          // Set the color
-          dot.style.backgroundColor = color;
-          // If red (note-off), fade out after 150ms
-          if (color === "#dc3545") {
+          // Set the class based on color
+          dot.classList.remove("on", "off");
+          if (color === "#28a745") {
+            dot.classList.add("on");
+          } else if (color === "#dc3545") {
+            dot.classList.add("off");
+            // Fade out after 150ms
             this.activityTimeouts[channel] = setTimeout(() => {
-              dot.style.backgroundColor = "transparent";
+              dot.classList.remove("off");
               delete this.activityTimeouts[channel];
             }, 150);
           }
@@ -1015,10 +1847,10 @@
           // Simple list (no accordion grouping)
           this.channelPresets.forEach((preset, index) => {
             const item = document.createElement("div");
-            item.style.cssText = "display: flex; align-items: center; gap: 8px; padding: 8px; margin: 4px 0; background-color: #fff; border: 1px solid #dee2e6; border-radius: 4px;";
+            item.className = "preset-item";
 
             const name = document.createElement("span");
-            name.style.cssText = "flex: 1; cursor: pointer; font-weight: 500;";
+            name.className = "preset-name";
             name.textContent = preset.name;
             name.title = "Click to load";
             name.addEventListener("click", () => this.loadChannelPreset(preset));
@@ -1204,7 +2036,7 @@
             const typeName = this.typeNames[type];
             const header = document.createElement("button");
             header.className = "preset-type-header";
-            header.textContent = `${typeName} (${byType[type].length})`;
+            header.innerHTML = `<span>${typeName}</span><span class="count">${byType[type].length}</span>`;
             header.addEventListener("click", () => {
               header.classList.toggle("active");
               content.style.display = header.classList.contains("active") ? "block" : "none";
@@ -1213,9 +2045,16 @@
             const content = document.createElement("div");
             content.className = "preset-type-content";
 
+            const grid = document.createElement("div");
+            grid.className = "preset-grid";
+
             byType[type].forEach((preset) => {
               const item = document.createElement("div");
               item.className = "preset-item";
+
+              // Header: name + seed
+              const headerRow = document.createElement("div");
+              headerRow.className = "preset-item-header";
 
               const name = document.createElement("span");
               name.className = "preset-name";
@@ -1227,39 +2066,17 @@
               seed.className = "preset-seed";
               seed.textContent = preset.seed;
 
-              const copyBtn = document.createElement("button");
-              copyBtn.className = "preset-btn copy";
-              copyBtn.textContent = "Copy";
-              copyBtn.title = "Copy seed to clipboard";
-              copyBtn.addEventListener("click", () => this.copyToClipboard(String(preset.seed)));
+              headerRow.appendChild(name);
+              headerRow.appendChild(seed);
 
-              const renameBtn = document.createElement("button");
-              renameBtn.className = "preset-btn rename";
-              renameBtn.textContent = "Rename";
-              renameBtn.addEventListener("click", () => {
-                const newName = prompt("Enter new name:", preset.name);
-                if (newName && newName.trim()) {
-                  this.renamePreset(preset.index, newName.trim());
-                }
-              });
-
-              const deleteBtn = document.createElement("button");
-              deleteBtn.className = "preset-btn delete";
-              deleteBtn.textContent = "Delete";
-              deleteBtn.addEventListener("click", () => {
-                if (confirm(`Delete "${preset.name}"?`)) {
-                  this.deletePreset(preset.index);
-                }
-              });
-
-              // Controls row: octave, volume, buttons
+              // Controls row: octave, volume
               const controls = document.createElement("div");
               controls.className = "preset-controls";
 
               const octLabel = document.createElement("label");
               octLabel.textContent = "Oct:";
               const octaveSelect = document.createElement("select");
-              octaveSelect.style.cssText = "padding: 2px; font-size: 11px;";
+              octaveSelect.className = "btn-sm";
               for (let o = -3; o <= 3; o++) {
                 const opt = document.createElement("option");
                 opt.value = o;
@@ -1290,15 +2107,47 @@
               controls.appendChild(octaveSelect);
               controls.appendChild(volLabel);
               controls.appendChild(volSlider);
-              controls.appendChild(copyBtn);
-              controls.appendChild(renameBtn);
-              controls.appendChild(deleteBtn);
 
-              item.appendChild(name);
-              item.appendChild(seed);
+              // Action buttons row
+              const actions = document.createElement("div");
+              actions.className = "preset-controls";
+
+              const copyBtn = document.createElement("button");
+              copyBtn.className = "preset-btn copy";
+              copyBtn.textContent = "Copy";
+              copyBtn.title = "Copy seed to clipboard";
+              copyBtn.addEventListener("click", () => this.copyToClipboard(String(preset.seed)));
+
+              const renameBtn = document.createElement("button");
+              renameBtn.className = "preset-btn rename";
+              renameBtn.textContent = "Rename";
+              renameBtn.addEventListener("click", () => {
+                const newName = prompt("Enter new name:", preset.name);
+                if (newName && newName.trim()) {
+                  this.renamePreset(preset.index, newName.trim());
+                }
+              });
+
+              const deleteBtn = document.createElement("button");
+              deleteBtn.className = "preset-btn delete";
+              deleteBtn.textContent = "Delete";
+              deleteBtn.addEventListener("click", () => {
+                if (confirm(`Delete "${preset.name}"?`)) {
+                  this.deletePreset(preset.index);
+                }
+              });
+
+              actions.appendChild(copyBtn);
+              actions.appendChild(renameBtn);
+              actions.appendChild(deleteBtn);
+
+              item.appendChild(headerRow);
               item.appendChild(controls);
-              content.appendChild(item);
+              item.appendChild(actions);
+              grid.appendChild(item);
             });
+
+            content.appendChild(grid);
 
             container.appendChild(header);
             container.appendChild(content);
@@ -1514,7 +2363,7 @@
               clearTimeout(this.activityTimeouts[ch]);
             }
             const dot = document.getElementById(`activityDot${ch}`);
-            if (dot) dot.style.backgroundColor = "transparent";
+            if (dot) dot.classList.remove("on", "off");
           }
           this.activityTimeouts = {};
           // Stop recording if active
@@ -1625,17 +2474,16 @@
 
         updateRecordButton() {
           const btn = document.getElementById("recordButton");
+          btn.classList.remove("btn-secondary", "btn-danger", "btn-warning", "recording-pulse");
           if (this.isRecording) {
             btn.textContent = "Stop Rec";
-            btn.style.backgroundColor = "#dc3545";
+            btn.classList.add("btn-danger", "recording-pulse");
           } else if (this.isRecordingArmed) {
             btn.textContent = "Armed...";
-            btn.style.backgroundColor = "#ffc107";
-            btn.style.color = "#000";
+            btn.classList.add("btn-warning", "recording-pulse");
           } else {
             btn.textContent = "Record";
-            btn.style.backgroundColor = "#6c757d";
-            btn.style.color = "#fff";
+            btn.classList.add("btn-secondary");
           }
         },
 
@@ -1643,6 +2491,7 @@
           const section = document.getElementById("clipsSection");
           const container = document.getElementById("clipsContainer");
           this.updateStorageIndicator();
+          this.updateRecordingTabState();
           if (this.clips.length === 0) {
             section.style.display = "none";
             return;
@@ -1651,16 +2500,18 @@
           container.innerHTML = "";
           this.clips.forEach((clip, index) => {
             const row = document.createElement("div");
-            row.style.cssText = "display: flex; align-items: center; gap: 8px; padding: 6px; margin: 4px 0; background-color: #fff; border: 1px solid #dee2e6; border-radius: 4px;";
+            row.className = "clip-item";
 
             const name = document.createElement("span");
-            name.style.cssText = "min-width: 80px; font-size: 13px; cursor: pointer;";
+            name.className = "preset-name";
+            name.style.minWidth = "80px";
             name.textContent = clip.name + (clip.saved ? "" : " *");
             name.title = "Click to rename";
             name.addEventListener("click", () => this.renameClip(index));
 
             const duration = document.createElement("span");
-            duration.style.cssText = "font-size: 11px; color: #666; min-width: 45px;";
+            duration.className = "preset-seed";
+            duration.style.minWidth = "45px";
             if (clip.duration !== undefined && clip.duration > 0) {
               const mins = Math.floor(clip.duration / 60);
               const secs = Math.floor(clip.duration % 60).toString().padStart(2, "0");
@@ -1673,16 +2524,15 @@
             audio.src = clip.url;
             audio.controls = true;
             audio.preload = "metadata";
-            audio.style.cssText = "height: 30px; flex: 1;";
 
             const downloadBtn = document.createElement("button");
             downloadBtn.textContent = "Save WAV";
-            downloadBtn.style.cssText = "padding: 4px 8px; font-size: 11px; background-color: #28a745; margin: 0;";
+            downloadBtn.className = "btn-sm btn-success";
             downloadBtn.addEventListener("click", () => this.downloadClipAsWav(index));
 
             const deleteBtn = document.createElement("button");
             deleteBtn.textContent = "Delete";
-            deleteBtn.style.cssText = "padding: 4px 8px; font-size: 11px; background-color: #dc3545; margin: 0;";
+            deleteBtn.className = "btn-sm btn-danger";
             deleteBtn.addEventListener("click", () => this.deleteClip(index));
 
             row.appendChild(name);
@@ -1828,10 +2678,7 @@
           const usedMB = (used / (1024 * 1024)).toFixed(2);
           const maxMB = this.maxStorageMB;
           const pct = Math.min(100, (used / (maxMB * 1024 * 1024)) * 100).toFixed(0);
-          let color = "#666";
-          if (pct > 80) color = "#dc3545";
-          else if (pct > 50) color = "#ffc107";
-          indicator.style.color = color;
+          indicator.style.color = pct > 80 ? "var(--accent-danger)" : pct > 50 ? "var(--accent-warning)" : "";
           indicator.textContent = `Storage: ${usedMB}MB / ~${maxMB}MB (${pct}%)`;
         },
 
@@ -1989,9 +2836,45 @@
               const content = this.nextElementSibling;
               const isExpanded = this.classList.contains("active");
               this.setAttribute("aria-expanded", isExpanded);
-              content.style.display = isExpanded ? "block" : "none";
+              content.classList.toggle("show", isExpanded);
               content.setAttribute("aria-hidden", !isExpanded);
             });
+          }
+        },
+
+        setupTabs() {
+          const tabBtns = document.querySelectorAll(".tab-btn");
+          const tabContents = document.querySelectorAll(".tab-content");
+
+          tabBtns.forEach(btn => {
+            btn.addEventListener("click", () => {
+              const tabId = btn.dataset.tab;
+
+              // Update button states
+              tabBtns.forEach(b => b.classList.remove("active"));
+              btn.classList.add("active");
+
+              // Update content states
+              tabContents.forEach(content => {
+                content.classList.remove("active");
+                if (content.id === `tab-${tabId}`) {
+                  content.classList.add("active");
+                }
+              });
+
+              // Update no clips message visibility when switching to recording tab
+              if (tabId === "recording") {
+                this.updateRecordingTabState();
+              }
+            });
+          });
+        },
+
+        updateRecordingTabState() {
+          const noClipsMsg = document.getElementById("noClipsMessage");
+          const clipsSection = document.getElementById("clipsSection");
+          if (noClipsMsg && clipsSection) {
+            noClipsMsg.style.display = this.clips.length === 0 ? "block" : "none";
           }
         },
 
@@ -2067,6 +2950,11 @@
           // MIDI enable/disable buttons
           document.getElementById("enableMidiButton").addEventListener("click", this.initMIDI.bind(this));
           document.getElementById("disableMidiButton").addEventListener("click", this.disableMIDI.bind(this));
+          // Force route toggle
+          document.getElementById("forceRouteToggle").addEventListener("change", (e) => {
+            this.forceRouteToActive = e.target.checked;
+            localStorage.setItem("zynForceRoute", e.target.checked ? "true" : "false");
+          });
         },
       };
 
