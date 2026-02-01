@@ -66,6 +66,7 @@ const ZynDemo = {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         this.rebuildPianoKeyboard();
+        this.updateWidescreenSidePanels(widescreenQuery.matches);
         if (widescreenQuery.matches) {
           this.renderInstrumentVisualizer();
           this.updateRecordingTabState();
@@ -74,6 +75,10 @@ const ZynDemo = {
     };
     widescreenQuery.addEventListener("change", onResize);
     window.addEventListener("resize", onResize);
+    // Set up side panels on initial load if already widescreen
+    if (widescreenQuery.matches) {
+      this.updateWidescreenSidePanels(true);
+    }
     // Auto-enable MIDI if previously enabled
     if (localStorage.getItem("zynMidiEnabled") === "true") {
       this.initMIDI();
@@ -394,6 +399,8 @@ const ZynDemo = {
 
   createChannelInputs() {
     const container = document.getElementById("midiChannelsSection");
+    const grid = document.createElement("div");
+    grid.className = "channel-grid";
     for (let ch = 0; ch < 16; ch++) {
       const row = document.createElement("div");
       row.className = "channel-row";
@@ -435,8 +442,9 @@ const ZynDemo = {
       row.appendChild(input);
       row.appendChild(setActiveBtn);
       row.appendChild(clearBtn);
-      container.appendChild(row);
+      grid.appendChild(row);
     }
+    container.appendChild(grid);
   },
 
   clearChannel(ch) {
@@ -634,7 +642,8 @@ const ZynDemo = {
       container.innerHTML = '<div class="no-presets">No channel presets saved yet.</div>';
       return;
     }
-    // Simple list (no accordion grouping)
+    const grid = document.createElement("div");
+    grid.className = "channel-preset-grid";
     this.channelPresets.forEach((preset, index) => {
       const item = document.createElement("div");
       item.className = "preset-item";
@@ -644,6 +653,9 @@ const ZynDemo = {
       name.textContent = preset.name;
       name.title = "Click to load";
       name.addEventListener("click", () => this.loadChannelPreset(preset));
+
+      const actions = document.createElement("div");
+      actions.className = "preset-controls";
 
       const renameBtn = document.createElement("button");
       renameBtn.className = "preset-btn rename";
@@ -664,11 +676,14 @@ const ZynDemo = {
         }
       });
 
+      actions.appendChild(renameBtn);
+      actions.appendChild(deleteBtn);
+
       item.appendChild(name);
-      item.appendChild(renameBtn);
-      item.appendChild(deleteBtn);
-      container.appendChild(item);
+      item.appendChild(actions);
+      grid.appendChild(item);
     });
+    container.appendChild(grid);
   },
 
   exportChannelPresets() {
@@ -828,8 +843,16 @@ const ZynDemo = {
       header.className = "preset-type-header";
       header.innerHTML = `<span>${typeName}</span><span class="count">${byType[type].length}</span>`;
       header.addEventListener("click", () => {
-        header.classList.toggle("active");
-        content.style.display = header.classList.contains("active") ? "block" : "none";
+        const wasActive = header.classList.contains("active");
+        // Collapse all other categories
+        container.querySelectorAll(".preset-type-header.active").forEach(h => {
+          h.classList.remove("active");
+          h.nextElementSibling.style.display = "none";
+        });
+        if (!wasActive) {
+          header.classList.add("active");
+          content.style.display = "block";
+        }
       });
 
       const content = document.createElement("div");
@@ -1009,6 +1032,8 @@ const ZynDemo = {
     this.randInstrumentSeed = seed;
     this.getInstrument(seed);
     this.writeInstrumentToDiv();
+    const typeLabel = document.getElementById("instrumentTypeLabel");
+    if (typeLabel) typeLabel.textContent = this.typeNames[Math.abs(seed) % 10] || "";
     if (this.channels[this.activeChannel]) this.syncActiveChannel();
   },
 
@@ -1246,7 +1271,7 @@ const ZynDemo = {
     const startTime = Date.now();
 
     btn.textContent = "Searching...";
-    btn.classList.remove("btn-secondary");
+    btn.classList.remove("btn-info");
     btn.classList.add("btn-warning");
     retryBtn.style.display = "none";
 
@@ -1259,7 +1284,7 @@ const ZynDemo = {
         this.findSimilarTimer = null;
         btn.textContent = "Find Similar";
         btn.classList.remove("btn-warning");
-        btn.classList.add("btn-secondary");
+        btn.classList.add("btn-info");
         retryBtn.style.display = "";
         if (bestSeed !== null) {
           document.getElementById("instrumentSeedInput").value = bestSeed;
@@ -1787,6 +1812,75 @@ const ZynDemo = {
         this.setAttribute("aria-expanded", isExpanded);
         content.classList.toggle("show", isExpanded);
         content.setAttribute("aria-hidden", !isExpanded);
+      });
+    }
+  },
+
+  updateWidescreenSidePanels(isWide) {
+    const sideContainer = document.querySelector(".side-panels");
+    if (!sideContainer) return;
+    const sidePanelIds = ["tab-about", "tab-presets", "tab-recording", "tab-midi"];
+
+    if (isWide && !sideContainer.querySelector(".side-panel-header")) {
+      // Entering widescreen — build accordion
+      sidePanelIds.forEach((id, i) => {
+        const panel = document.getElementById(id);
+        if (!panel) return;
+        const title = panel.dataset.panelTitle || id;
+
+        // Create header button
+        const header = document.createElement("button");
+        header.className = "side-panel-header";
+        header.dataset.sidePanelId = id;
+        header.innerHTML = `<span>${title}</span><span class="side-panel-arrow">\u25B8</span>`;
+
+        // Create body wrapper and move all panel children into it
+        const body = document.createElement("div");
+        body.className = "side-panel-body";
+        body.dataset.sidePanelId = id;
+        body.style.display = "none";
+        while (panel.firstChild) body.appendChild(panel.firstChild);
+
+        // Insert header and body directly into .side-panels
+        sideContainer.insertBefore(header, panel);
+        sideContainer.insertBefore(body, panel);
+
+        // Click handler — exclusive expand
+        header.addEventListener("click", () => {
+          const wasActive = header.classList.contains("active");
+          // Collapse all
+          sideContainer.querySelectorAll(".side-panel-header").forEach(h => {
+            h.classList.remove("active");
+          });
+          sideContainer.querySelectorAll(".side-panel-body").forEach(b => {
+            b.style.display = "none";
+          });
+          if (!wasActive) {
+            header.classList.add("active");
+            body.style.display = "block";
+            // Trigger re-renders for content that needs layout
+            if (id === "tab-recording") this.updateRecordingTabState();
+          }
+        });
+
+        // Auto-expand first panel
+        if (i === 0) {
+          header.classList.add("active");
+          body.style.display = "block";
+        }
+      });
+    } else if (!isWide && sideContainer.querySelector(".side-panel-header")) {
+      // Leaving widescreen — restore original DOM
+      sidePanelIds.forEach(id => {
+        const panel = document.getElementById(id);
+        if (!panel) return;
+        const body = sideContainer.querySelector(`.side-panel-body[data-side-panel-id="${id}"]`);
+        const header = sideContainer.querySelector(`.side-panel-header[data-side-panel-id="${id}"]`);
+        if (body) {
+          while (body.firstChild) panel.appendChild(body.firstChild);
+          body.remove();
+        }
+        if (header) header.remove();
       });
     }
   },

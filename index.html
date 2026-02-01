@@ -66,14 +66,24 @@
           </ul>
         </div>
 
-        <div class="control-group" style="margin-bottom: var(--space-4);">
-          <label for="instrumentSeedInput">Seed</label>
-          <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" style="width: 140px;" />
-          <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
+        <div id="instrumentVisualizer" class="instrument-viz"></div>
+        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+          View Raw JSON
+        </div>
+        <div class="tab-help-content">
+          <pre id="instrumentJson"></pre>
         </div>
 
-        <div class="generator-row">
-          <div id="typeRadios" style="flex: 1;">
+        <div class="divider">
+          <label style="margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);">Generator</label>
+          <div class="control-group" style="margin-bottom: var(--space-4);">
+            <label for="instrumentSeedInput">Seed</label>
+            <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" style="width: 140px;" />
+            <span id="instrumentTypeLabel" style="font-weight: 500; color: var(--text-secondary);"></span>
+            <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
+          </div>
+
+          <div id="typeRadios">
             <label style="margin-bottom: var(--space-2); display: block;">Type:</label>
             <div class="type-radios">
               <label class="type-radio"><input type="radio" name="instrumentType" value="any" checked /> Any</label>
@@ -89,9 +99,12 @@
               <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX</label>
             </div>
           </div>
-          <button id="randomInstrumentButton" class="btn-success">Generate Random</button>
-          <button id="findSimilarButton" class="btn-secondary btn-sm">Find Similar</button>
-          <button id="retrySimilarButton" class="btn-secondary btn-sm" style="display: none;">Retry</button>
+
+          <div class="generator-row" style="margin-top: var(--space-3);">
+            <button id="randomInstrumentButton" class="btn-success">Generate Random</button>
+            <button id="findSimilarButton" class="btn-info">Find Similar</button>
+            <button id="retrySimilarButton" class="btn-secondary" style="display: none;">Retry</button>
+          </div>
         </div>
 
         <div class="divider">
@@ -101,15 +114,40 @@
             <button id="savePresetButton" class="btn-success">Save Current</button>
           </div>
         </div>
+      </div>
 
-        <div class="divider">
-          <div id="instrumentVisualizer" class="instrument-viz"></div>
-          <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
-            View Raw JSON
-          </div>
-          <div class="tab-help-content">
-            <pre id="instrumentJson"></pre>
-          </div>
+      <div class="side-panels">
+      <!-- Tab: About -->
+      <div id="tab-about" class="tab-content active" data-panel-title="About">
+        <h2 style="margin-top: 0;">Welcome to Zyn Demo</h2>
+        <p>
+          Zyn is a small JS audio synthesizer which clocks in at around 9kb (~3.3kb gzipped).
+          You can read all about it on GitHub <a href="https://github.com/AlexanderParker/zyn">here</a>.
+        </p>
+        <p>
+          This interactive tool allows you to explore procedurally generated synthesizer instruments.
+          Use your computer keyboard, MIDI controller, or the on-screen piano to play notes and
+          experiment with different instrument seeds.
+        </p>
+
+        <div class="notice" role="alert">
+          <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh.
+          Please listen at a safe and comfortable volume to protect your hearing.
+        </div>
+
+        <h3 style="font-size: 1rem; margin: var(--space-5) 0 var(--space-3) 0; color: var(--text-primary);">Keyboard Controls</h3>
+        <ul style="color: var(--text-secondary); padding-left: var(--space-5);">
+          <li><strong>QWERTY keys:</strong> Play notes (Q = middle C)</li>
+          <li><strong>Page Up/Down:</strong> Change octave</li>
+          <li><strong>+ / -:</strong> Browse instrument seeds</li>
+          <li><strong>Escape:</strong> Stop all sounds</li>
+        </ul>
+
+        <div style="margin-top: var(--space-5);">
+          <a href="https://github.com/AlexanderParker/zyn" class="github-link">
+            <img src="https://github.com/favicon.ico" alt="" />
+            View on GitHub
+          </a>
         </div>
       </div>
 
@@ -217,39 +255,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Tab: About -->
-      <div id="tab-about" class="tab-content active" data-panel-title="About">
-        <h2 style="margin-top: 0;">Welcome to Zyn Demo</h2>
-        <p>
-          Zyn is a small JS audio synthesizer which clocks in at around 9kb (~3.3kb gzipped).
-          You can read all about it on GitHub <a href="https://github.com/AlexanderParker/zyn">here</a>.
-        </p>
-        <p>
-          This interactive tool allows you to explore procedurally generated synthesizer instruments.
-          Use your computer keyboard, MIDI controller, or the on-screen piano to play notes and
-          experiment with different instrument seeds.
-        </p>
-
-        <div class="notice" role="alert">
-          <strong>Notice:</strong> As this synth generates random sounds, some may be unexpected or harsh.
-          Please listen at a safe and comfortable volume to protect your hearing.
-        </div>
-
-        <h3 style="font-size: 1rem; margin: var(--space-5) 0 var(--space-3) 0; color: var(--text-primary);">Keyboard Controls</h3>
-        <ul style="color: var(--text-secondary); padding-left: var(--space-5);">
-          <li><strong>QWERTY keys:</strong> Play notes (Q = middle C)</li>
-          <li><strong>Page Up/Down:</strong> Change octave</li>
-          <li><strong>+ / -:</strong> Browse instrument seeds</li>
-          <li><strong>Escape:</strong> Stop all sounds</li>
-        </ul>
-
-        <div style="margin-top: var(--space-5);">
-          <a href="https://github.com/AlexanderParker/zyn" class="github-link">
-            <img src="https://github.com/favicon.ico" alt="" />
-            View on GitHub
-          </a>
-        </div>
       </div>
       </div>
     </div>

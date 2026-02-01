@@ -563,12 +563,12 @@ button.btn-info:hover:not(:disabled) {
    ============================================= */
 .generator-row {
   display: flex;
-  gap: var(--space-4);
-  align-items: flex-start;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .generator-row button {
-  margin-top: calc(var(--space-2) + 1.1rem);
   white-space: nowrap;
 }
 
@@ -798,6 +798,14 @@ button.btn-info:hover:not(:disabled) {
   gap: var(--space-3);
 }
 
+.channel-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  max-width: calc(180px * 3 + var(--space-3) * 2 + 2px);
+}
+
 .preset-item {
   display: flex;
   flex-direction: column;
@@ -897,15 +905,22 @@ button.btn-info:hover:not(:disabled) {
 /* =============================================
    MIDI CHANNELS
    ============================================= */
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2);
+  max-width: calc(200px * 4 + var(--space-2) * 3 + 2px);
+}
+
 .channel-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-3);
   background: var(--bg-container);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  margin: var(--space-2) 0;
   transition: all 0.2s ease;
 }
 
@@ -919,10 +934,10 @@ button.btn-info:hover:not(:disabled) {
 }
 
 .channel-label {
-  min-width: 80px;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
+  flex: 1;
 }
 
 .channel-activity {
@@ -945,10 +960,10 @@ button.btn-info:hover:not(:disabled) {
 }
 
 .channel-input {
-  flex: 1;
-  min-width: 120px;
+  width: 100%;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 0.75rem;
+  order: 10;
 }
 
 .set-active-btn {
@@ -1104,14 +1119,9 @@ button.btn-info:hover:not(:disabled) {
     margin-right: -12px;
   }
 
-  .channel-row {
-    flex-wrap: wrap;
-  }
-
-  .channel-input {
-    width: 100%;
-    order: 10;
-    margin-top: var(--space-2);
+  .channel-grid {
+    grid-template-columns: 1fr;
+    max-width: none;
   }
 
   .clip-item {
@@ -1153,7 +1163,7 @@ button.btn-info:hover:not(:disabled) {
 }
 
 /* =============================================
-   WIDESCREEN: ALL PANELS VISIBLE
+   WIDESCREEN: TWO-COLUMN WITH COLLAPSIBLE SIDEBAR
    ============================================= */
 @media (min-width: 1400px) {
   .container {
@@ -1169,7 +1179,8 @@ button.btn-info:hover:not(:disabled) {
     margin-top: 0;
   }
 
-  .tab-content::before {
+  /* Standalone panels get title headings */
+  #tab-instrument::before {
     content: attr(data-panel-title);
     display: block;
     font-size: 1.1rem;
@@ -1188,7 +1199,69 @@ button.btn-info:hover:not(:disabled) {
     align-items: start;
   }
 
-  #tab-about {
-    grid-column: span 2;
+  /* Side panels container */
+  .side-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Side panel accordion headers (injected by JS) */
+  .side-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-section);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    margin: 0;
+  }
+
+  .side-panel-header:first-child {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
+  .side-panel-header:not(:first-child) {
+    margin-top: -1px;
+  }
+
+  .side-panel-header:hover:not(:disabled) {
+    background: var(--bg-hover);
+    transform: none;
+    box-shadow: none;
+  }
+
+  .side-panel-header .side-panel-arrow {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+  }
+
+  .side-panel-header.active {
+    background: var(--bg-input);
+  }
+
+  .side-panel-header.active .side-panel-arrow {
+    transform: rotate(90deg);
+  }
+
+  /* Side panel body (content wrapper injected by JS) */
+  .side-panel-body {
+    border: 1px solid var(--border-color);
+    border-top: none;
+    padding: var(--space-4);
+    background: var(--bg-container);
+  }
+
+  /* Hide original tab-content inside side-panels — JS wraps content into .side-panel-body */
+  .side-panels > .tab-content {
+    display: none !important;
   }
 }
