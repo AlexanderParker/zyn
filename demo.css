@@ -521,8 +521,14 @@ button.btn-info:hover:not(:disabled) {
   transition: all 0.2s ease;
 }
 
-.tab-help:hover {
+.tab-help:hover,
+.tab-help:focus-visible {
   background: var(--bg-hover);
+}
+
+.tab-help:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
 }
 
 .tab-help::after {
@@ -643,6 +649,7 @@ button.btn-info:hover:not(:disabled) {
 }
 
 .type-radio {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -669,7 +676,19 @@ button.btn-info:hover:not(:disabled) {
 }
 
 .type-radio input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.type-radio:focus-within {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
 }
 
 .type-icon {
@@ -939,8 +958,15 @@ button.btn-info:hover:not(:disabled) {
   transition: color 0.2s ease;
 }
 
-.preset-name:hover {
+.preset-name:hover,
+.preset-name:focus-visible {
   color: var(--accent-secondary);
+}
+
+.preset-name:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .preset-seed {

@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
-    <div class="container">
-      <header class="page-header">
+    <div class="container" role="application" aria-label="Zyn synthesizer playground">
+      <header class="page-header" role="banner">
         <h1>Zyn</h1>
         <a href="https://github.com/AlexanderParker/zyn" class="github-link" title="View source code on GitHub">
           <img src="https://github.com/favicon.ico" alt="" />
@@ -18,11 +18,11 @@
       </header>
 
       <!-- Piano Section - Always Visible -->
-      <section class="piano-section">
+      <section class="piano-section" role="region" aria-label="Piano and playback controls">
         <div id="oscilloscopeContainer" class="oscilloscope-container" title="Oscilloscope — visual waveform of the audio output">
           <canvas id="oscilloscopeCanvas"></canvas>
         </div>
-        <div class="piano" id="pianoKeyboard" title="Click keys to play notes, or use your QWERTY keyboard"></div>
+        <div class="piano" id="pianoKeyboard" role="group" aria-label="Piano keyboard" title="Click keys to play notes, or use your QWERTY keyboard"></div>
         <div class="controls-panel">
           <div class="control-group">
             <label for="octaveSelect">Octave</label>
@@ -48,18 +48,18 @@
       </section>
 
       <!-- Tab Navigation -->
-      <nav class="tab-nav">
-        <button class="tab-btn active" data-tab="about" title="About Zyn and keyboard controls">&#8505;&#65039; About</button>
-        <button class="tab-btn" data-tab="presets" title="Browse and manage saved presets">&#128278; Presets</button>
-        <button class="tab-btn" data-tab="instrument" title="Generate and explore instruments">&#127929; Instrument</button>
-        <button class="tab-btn" data-tab="recording" title="Record and export audio clips">&#128308; Recording</button>
-        <button class="tab-btn" data-tab="midi" title="Configure MIDI controller and channels">&#127928; MIDI</button>
-        <button class="tab-btn" data-tab="code" title="Code snippet for the current instrument">&#128187; Code</button>
+      <nav class="tab-nav" role="tablist" aria-label="Main sections">
+        <button class="tab-btn active" data-tab="about" role="tab" aria-selected="true" aria-controls="tab-about" tabindex="0" title="About Zyn and keyboard controls">&#8505;&#65039; About</button>
+        <button class="tab-btn" data-tab="presets" role="tab" aria-selected="false" aria-controls="tab-presets" tabindex="-1" title="Browse and manage saved presets">&#128278; Presets</button>
+        <button class="tab-btn" data-tab="instrument" role="tab" aria-selected="false" aria-controls="tab-instrument" tabindex="-1" title="Generate and explore instruments">&#127929; Instrument</button>
+        <button class="tab-btn" data-tab="recording" role="tab" aria-selected="false" aria-controls="tab-recording" tabindex="-1" title="Record and export audio clips">&#128308; Recording</button>
+        <button class="tab-btn" data-tab="midi" role="tab" aria-selected="false" aria-controls="tab-midi" tabindex="-1" title="Configure MIDI controller and channels">&#127928; MIDI</button>
+        <button class="tab-btn" data-tab="code" role="tab" aria-selected="false" aria-controls="tab-code" tabindex="-1" title="Code snippet for the current instrument">&#128187; Code</button>
       </nav>
 
-      <div class="tab-panels">
+      <div class="tab-panels" role="region" aria-label="Main content">
       <!-- Tab: Instrument -->
-      <div id="tab-instrument" class="tab-content" data-panel-title="Instrument">
+      <div id="tab-instrument" class="tab-content" role="tabpanel" aria-label="Instrument" tabindex="-1" data-panel-title="Instrument">
         <div id="instrumentHeader" class="instrument-header">
           <span>&#127929; Instrument</span>
           <span class="instrument-header-seed">
@@ -67,7 +67,7 @@
             <button id="copyHeaderSeed" class="btn-icon" title="Copy seed to clipboard">&#128203;</button>
           </span>
         </div>
-        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+        <div class="tab-help" tabindex="0" role="button" aria-expanded="false" onclick="this.classList.toggle('expanded'); this.setAttribute('aria-expanded', this.classList.contains('expanded')); this.nextElementSibling.classList.toggle('show');">
           How to use the Instrument Generator
         </div>
         <div class="tab-help-content">
@@ -78,8 +78,6 @@
             <li><strong>Instrument types:</strong> There are 10 types (0 Pad, 1 Lead, 2 Bass, 3 Key, 4 Pluck, 5 Bell, 6 String, 7 Drum, 8 Perc, 9 FX) determined by the last digit of the seed</li>
           </ul>
         </div>
-
-        <div id="instrumentVisualizer" class="instrument-viz"></div>
 
         <div class="divider">
           <label style="margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);">Generator</label>
@@ -122,8 +120,10 @@
           </div>
         </div>
 
+        <div id="instrumentVisualizer" class="instrument-viz"></div>
+
         <div class="divider">
-          <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+          <div class="tab-help" tabindex="0" role="button" aria-expanded="false" onclick="this.classList.toggle('expanded'); this.setAttribute('aria-expanded', this.classList.contains('expanded')); this.nextElementSibling.classList.toggle('show');">
             View Raw JSON
           </div>
           <div class="tab-help-content">
@@ -135,9 +135,9 @@
         </div>
       </div>
 
-      <div class="side-panels">
+      <aside class="side-panels" role="complementary" aria-label="Information and settings">
       <!-- Tab: About -->
-      <div id="tab-about" class="tab-content active" data-panel-title="&#8505;&#65039; About">
+      <div id="tab-about" class="tab-content active" role="tabpanel" aria-label="About" tabindex="0" data-panel-title="&#8505;&#65039; About">
         <h2 style="margin-top: 0;">Welcome to Zyn</h2>
         <p>
           <strong>Z.js</strong> is a small, standalone JS audio synthesizer (~9kb, ~3.3kb gzipped) that
@@ -157,18 +157,50 @@
           Please listen at a safe and comfortable volume to protect your hearing.
         </div>
 
-        <h3 style="font-size: 1rem; margin: var(--space-5) 0 var(--space-3) 0; color: var(--text-primary);">Keyboard Controls</h3>
+        <h3 style="font-size: 1rem; margin: var(--space-5) 0 var(--space-3) 0; color: var(--text-primary);">Sections</h3>
         <ul style="color: var(--text-secondary); padding-left: var(--space-5);">
+          <li><strong>Instrument:</strong> Generate instruments from seed numbers, pick a type, and use Find Similar to discover related sounds</li>
+          <li><strong>Presets:</strong> Browse, save, and manage your bookmarked instruments, organised by type</li>
+          <li><strong>Recording:</strong> Capture audio clips of your performance and export them as WAV files</li>
+          <li><strong>MIDI:</strong> Connect a MIDI controller, assign instruments to up to 16 channels, and save channel configurations</li>
+          <li><strong>Code:</strong> Copy ready-to-use Z.js code snippets for the current instrument or your full channel setup</li>
+        </ul>
+
+        <h3 style="font-size: 1rem; margin: var(--space-5) 0 var(--space-3) 0; color: var(--text-primary);">Keyboard Shortcuts</h3>
+        <p style="color: var(--text-muted); margin-bottom: var(--space-3); font-size: 0.8rem; font-style: italic;">Shortcuts are disabled while typing in text fields.</p>
+
+        <strong style="color: var(--text-primary); font-size: 0.875rem;">Playing</strong>
+        <ul style="color: var(--text-secondary); padding-left: var(--space-5); margin-bottom: var(--space-3);">
           <li><strong>QWERTY keys:</strong> Play notes (Q = middle C)</li>
-          <li><strong>Page Up/Down:</strong> Change octave</li>
-          <li><strong>+ / -:</strong> Browse instrument seeds</li>
+          <li><strong>Page Up / Down:</strong> Change octave</li>
+          <li><strong>+ / &minus;:</strong> Browse instrument seeds</li>
           <li><strong>Escape:</strong> Stop all sounds</li>
+        </ul>
+
+        <strong style="color: var(--text-primary); font-size: 0.875rem;">Tabs</strong>
+        <ul style="color: var(--text-secondary); padding-left: var(--space-5); margin-bottom: var(--space-3);">
+          <li><strong>Alt+1&ndash;6:</strong> Switch tabs (About, Presets, Instrument, Recording, MIDI, Code)</li>
+        </ul>
+
+        <strong style="color: var(--text-primary); font-size: 0.875rem;">Actions</strong>
+        <ul style="color: var(--text-secondary); padding-left: var(--space-5); margin-bottom: var(--space-3);">
+          <li><strong>Alt+G:</strong> Generate random instrument</li>
+          <li><strong>Alt+S:</strong> Find similar instrument</li>
+          <li><strong>Alt+D:</strong> Retry find similar</li>
+          <li><strong>Alt+R:</strong> Toggle recording</li>
+        </ul>
+
+        <strong style="color: var(--text-primary); font-size: 0.875rem;">Presets</strong>
+        <ul style="color: var(--text-secondary); padding-left: var(--space-5);">
+          <li><strong>Arrow Up / Down:</strong> Navigate between presets</li>
+          <li><strong>Home / End:</strong> Jump to first / last preset</li>
+          <li><strong>Enter / Space:</strong> Load selected preset</li>
         </ul>
       </div>
 
       <!-- Tab: Presets -->
-      <div id="tab-presets" class="tab-content" data-panel-title="&#128278; Presets">
-        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+      <div id="tab-presets" class="tab-content" role="tabpanel" aria-label="Presets" tabindex="-1" data-panel-title="&#128278; Presets">
+        <div class="tab-help" tabindex="0" role="button" aria-expanded="false" onclick="this.classList.toggle('expanded'); this.setAttribute('aria-expanded', this.classList.contains('expanded')); this.nextElementSibling.classList.toggle('show');">
           How to use Presets
         </div>
         <div class="tab-help-content">
@@ -190,8 +222,8 @@
       </div>
 
       <!-- Tab: Recording -->
-      <div id="tab-recording" class="tab-content" data-panel-title="&#128308; Recording">
-        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+      <div id="tab-recording" class="tab-content" role="tabpanel" aria-label="Recording" tabindex="-1" data-panel-title="&#128308; Recording">
+        <div class="tab-help" tabindex="0" role="button" aria-expanded="false" onclick="this.classList.toggle('expanded'); this.setAttribute('aria-expanded', this.classList.contains('expanded')); this.nextElementSibling.classList.toggle('show');">
           How to Record Audio
         </div>
         <div class="tab-help-content">
@@ -222,8 +254,8 @@
       </div>
 
       <!-- Tab: MIDI -->
-      <div id="tab-midi" class="tab-content" data-panel-title="&#127928; MIDI">
-        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+      <div id="tab-midi" class="tab-content" role="tabpanel" aria-label="MIDI" tabindex="-1" data-panel-title="&#127928; MIDI">
+        <div class="tab-help" tabindex="0" role="button" aria-expanded="false" onclick="this.classList.toggle('expanded'); this.setAttribute('aria-expanded', this.classList.contains('expanded')); this.nextElementSibling.classList.toggle('show');">
           How to use MIDI
         </div>
         <div class="tab-help-content">
@@ -237,20 +269,16 @@
           </ul>
         </div>
 
-        <div class="control-group" style="margin-bottom: var(--space-4);">
-          <button id="enableMidiButton" class="btn-secondary" title="Request MIDI access and connect your controller">&#127928; Enable MIDI</button>
-          <span id="midiStatusWrapper" class="control-group" style="display: none; border: 2px solid var(--accent-success); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 0.875rem;">
-            <span id="midiDot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 8px var(--accent-success);"></span>
-            <span>MIDI: <span id="midiStatus"></span></span>
-            <button id="disableMidiButton" class="btn-danger btn-sm" title="Disconnect MIDI controller">Disable</button>
-          </span>
-        </div>
-
-        <div class="control-group" style="margin-bottom: var(--space-4);">
-          <label style="display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; margin: 0;">
-            <input type="checkbox" id="forceRouteToggle" style="accent-color: var(--accent-secondary); width: 16px; height: 16px;" title="Send all MIDI input to the active channel instead of the controller's channel" />
-            Route MIDI to active channel
-          </label>
+        <div class="control-group" style="margin-bottom: var(--space-4); justify-content: space-between;">
+          <div class="control-group">
+            <button id="enableMidiButton" class="btn-secondary" title="Request MIDI access and connect your controller">&#127928; Enable MIDI</button>
+            <span id="midiStatusWrapper" class="control-group" style="display: none; border: 2px solid var(--accent-success); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 0.875rem;">
+              <span id="midiDot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 8px var(--accent-success);"></span>
+              <span>MIDI: <span id="midiStatus"></span></span>
+              <button id="disableMidiButton" class="btn-danger btn-sm" title="Disconnect MIDI controller">Disable</button>
+            </span>
+          </div>
+          <button id="forceRouteToggle" class="btn-secondary" title="Send all MIDI input to the active channel instead of the controller's channel">&#9744; Route to Active</button>
         </div>
 
         <h3 style="font-size: 1rem; margin: var(--space-4) 0 var(--space-3) 0; color: var(--text-primary);">Channel Configuration</h3>
@@ -271,7 +299,7 @@
         </div>
       </div>
       <!-- Tab: Code -->
-      <div id="tab-code" class="tab-content" data-panel-title="&#128187; Code">
+      <div id="tab-code" class="tab-content" role="tabpanel" aria-label="Code" tabindex="-1" data-panel-title="&#128187; Code">
         <h3 style="font-size: 0.9rem; margin: 0 0 var(--space-2) 0; color: var(--text-primary);">Single Instrument</h3>
         <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.85rem;">
           Use the current instrument seed in your own project.
@@ -290,7 +318,7 @@
         </div>
         <pre id="channelCodeSample" class="code-sample"></pre>
       </div>
-      </div>
+      </aside>
       </div>
     </div>
 

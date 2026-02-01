@@ -53,6 +53,7 @@ const ZynDemo = {
     this.setupTabs();
     this.createPianoKeyboard();
     this.renderPresetAccordion();
+    this.setupPresetKeyboardNavigation();
     this.initChannels();
     this.renderChannelPresets();
     // Start oscilloscope
@@ -87,7 +88,10 @@ const ZynDemo = {
     // Restore force-route setting
     if (localStorage.getItem("zynForceRoute") === "true") {
       this.forceRouteToActive = true;
-      document.getElementById("forceRouteToggle").checked = true;
+      const btn = document.getElementById("forceRouteToggle");
+      btn.classList.remove("btn-secondary");
+      btn.classList.add("btn-success");
+      btn.textContent = "\u2611 Route to Active";
     }
     // Warm up audio on first user interaction to eliminate delay
     const warmUpOnce = () => {
@@ -677,7 +681,12 @@ const ZynDemo = {
       name.className = "preset-name";
       name.textContent = preset.name;
       name.title = "Click to load this channel configuration";
+      name.tabIndex = 0;
+      name.setAttribute("role", "button");
       name.addEventListener("click", () => this.loadChannelPreset(preset));
+      name.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.loadChannelPreset(preset); }
+      });
 
       const actions = document.createElement("div");
       actions.className = "preset-controls";
@@ -936,7 +945,12 @@ const ZynDemo = {
         name.className = "preset-name";
         name.textContent = preset.name;
         name.title = `Click to load instrument seed ${preset.seed}`;
+        name.tabIndex = 0;
+        name.setAttribute("role", "button");
         name.addEventListener("click", () => this.loadPreset(preset));
+        name.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.loadPreset(preset); }
+        });
 
         const seed = document.createElement("span");
         seed.className = "preset-seed";
@@ -1167,6 +1181,24 @@ const ZynDemo = {
 
   handleKeyPress(event) {
     if (this.isTextInputActive()) return;
+
+    // Alt+key shortcuts
+    if (event.altKey && !event.ctrlKey && !event.metaKey) {
+      const tabMap = { "1": "about", "2": "presets", "3": "instrument", "4": "recording", "5": "midi", "6": "code" };
+      if (tabMap[event.key]) {
+        event.preventDefault();
+        const btn = document.querySelector(`.tab-btn[data-tab="${tabMap[event.key]}"]`);
+        if (btn) btn.click();
+        return;
+      }
+      const actionMap = { "g": () => this.handleRandomInstrument(), "s": () => this.handleFindSimilar(false), "d": () => this.handleFindSimilar(true), "r": () => this.toggleRecording() };
+      const action = actionMap[event.key.toLowerCase()];
+      if (action) {
+        event.preventDefault();
+        action();
+        return;
+      }
+    }
 
     const key = event.key.toLowerCase();
     const octaveSelect = document.getElementById("octaveSelect");
@@ -1615,7 +1647,12 @@ const ZynDemo = {
       name.style.minWidth = "80px";
       name.textContent = clip.name + (clip.saved ? "" : " *");
       name.title = "Click to rename";
+      name.tabIndex = 0;
+      name.setAttribute("role", "button");
       name.addEventListener("click", () => this.renameClip(index));
+      name.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.renameClip(index); }
+      });
 
       const duration = document.createElement("span");
       duration.className = "preset-seed";
@@ -1950,6 +1987,40 @@ const ZynDemo = {
         content.setAttribute("aria-hidden", !isExpanded);
       });
     }
+    // Keyboard support for .tab-help accordions
+    document.querySelectorAll(".tab-help[role='button']").forEach(el => {
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          el.click();
+        }
+      });
+    });
+  },
+
+  setupPresetKeyboardNavigation() {
+    const container = document.getElementById("presetAccordion");
+    if (!container) return;
+    container.addEventListener("keydown", (e) => {
+      if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+      const focused = document.activeElement;
+      if (!focused || !focused.classList.contains("preset-name")) return;
+      const activePanel = container.querySelector('.preset-tab-panel[style*="display: block"]');
+      if (!activePanel) return;
+      const names = Array.from(activePanel.querySelectorAll(".preset-name"));
+      const idx = names.indexOf(focused);
+      if (idx === -1) return;
+      let next = -1;
+      if (e.key === "ArrowDown") next = Math.min(idx + 1, names.length - 1);
+      else if (e.key === "ArrowUp") next = Math.max(idx - 1, 0);
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = names.length - 1;
+      if (next !== -1 && next !== idx) {
+        e.preventDefault();
+        names[next].focus();
+        names[next].scrollIntoView({ block: "nearest" });
+      }
+    });
   },
 
   updateWidescreenSidePanels(isWide) {
@@ -1961,6 +2032,8 @@ const ZynDemo = {
       // Entering widescreen — build tab bar + content area
       const tabBar = document.createElement("div");
       tabBar.className = "side-panel-tabs";
+      tabBar.setAttribute("role", "tablist");
+      tabBar.setAttribute("aria-label", "Side panels");
 
       sidePanelIds.forEach((id, i) => {
         const panel = document.getElementById(id);
@@ -1970,6 +2043,10 @@ const ZynDemo = {
         // Create tab button
         const tab = document.createElement("button");
         tab.className = "side-panel-tab";
+        tab.setAttribute("role", "tab");
+        tab.setAttribute("aria-selected", i === 0 ? "true" : "false");
+        tab.setAttribute("aria-controls", `side-body-${id}`);
+        tab.tabIndex = i === 0 ? 0 : -1;
         tab.dataset.sidePanelId = id;
         tab.textContent = title;
         if (i === 0) tab.classList.add("active");
@@ -1978,6 +2055,9 @@ const ZynDemo = {
         // Create body wrapper and move all panel children into it
         const body = document.createElement("div");
         body.className = "side-panel-body";
+        body.setAttribute("role", "tabpanel");
+        body.id = `side-body-${id}`;
+        body.tabIndex = i === 0 ? 0 : -1;
         body.dataset.sidePanelId = id;
         body.style.display = i === 0 ? "block" : "none";
         while (panel.firstChild) body.appendChild(panel.firstChild);
@@ -1986,15 +2066,37 @@ const ZynDemo = {
 
         // Click handler — switch tabs
         tab.addEventListener("click", () => {
-          sideContainer.querySelectorAll(".side-panel-tab").forEach(t => t.classList.remove("active"));
-          sideContainer.querySelectorAll(".side-panel-body").forEach(b => { b.style.display = "none"; });
+          const allTabs = sideContainer.querySelectorAll(".side-panel-tab");
+          const allBodies = sideContainer.querySelectorAll(".side-panel-body");
+          allTabs.forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); t.tabIndex = -1; });
+          allBodies.forEach(b => { b.style.display = "none"; b.tabIndex = -1; });
           tab.classList.add("active");
+          tab.setAttribute("aria-selected", "true");
+          tab.tabIndex = 0;
           body.style.display = "block";
+          body.tabIndex = 0;
           if (id === "tab-recording") this.updateRecordingTabState();
         });
       });
 
       sideContainer.insertBefore(tabBar, sideContainer.firstChild);
+
+      // Arrow key navigation for side panel tabs
+      tabBar.addEventListener("keydown", (e) => {
+        const tabs = Array.from(tabBar.querySelectorAll(".side-panel-tab"));
+        const idx = tabs.indexOf(document.activeElement);
+        if (idx === -1) return;
+        let next = -1;
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % tabs.length;
+        else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx - 1 + tabs.length) % tabs.length;
+        else if (e.key === "Home") next = 0;
+        else if (e.key === "End") next = tabs.length - 1;
+        if (next !== -1) {
+          e.preventDefault();
+          tabs[next].focus();
+          tabs[next].click();
+        }
+      });
     } else if (!isWide && sideContainer.querySelector(".side-panel-tabs")) {
       // Leaving widescreen — restore original DOM
       sidePanelIds.forEach(id => {
@@ -2012,35 +2114,53 @@ const ZynDemo = {
   },
 
   setupTabs() {
-    const tabBtns = document.querySelectorAll(".tab-btn");
+    const tabBtns = Array.from(document.querySelectorAll(".tab-btn"));
     const tabContents = document.querySelectorAll(".tab-content");
 
-    tabBtns.forEach(btn => {
-      btn.addEventListener("click", () => {
-        const tabId = btn.dataset.tab;
+    const activateTab = (btn) => {
+      const tabId = btn.dataset.tab;
 
-        // Update button states
-        tabBtns.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
+      // Update button states
+      tabBtns.forEach(b => { b.classList.remove("active"); b.setAttribute("aria-selected", "false"); b.tabIndex = -1; });
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+      btn.tabIndex = 0;
 
-        // Update content states
-        tabContents.forEach(content => {
-          content.classList.remove("active");
-          if (content.id === `tab-${tabId}`) {
-            content.classList.add("active");
-          }
-        });
-
-        // Update no clips message visibility when switching to recording tab
-        if (tabId === "recording") {
-          this.updateRecordingTabState();
-        }
-        // Redraw instrument visualizer when switching to instrument tab
-        // (ADSR canvases need layout dimensions to render)
-        if (tabId === "instrument") {
-          this.renderInstrumentVisualizer();
-        }
+      // Update content states
+      tabContents.forEach(content => {
+        const isActive = content.id === `tab-${tabId}`;
+        content.classList.toggle("active", isActive);
+        content.tabIndex = isActive ? 0 : -1;
       });
+
+      // Update no clips message visibility when switching to recording tab
+      if (tabId === "recording") {
+        this.updateRecordingTabState();
+      }
+      // Redraw instrument visualizer when switching to instrument tab
+      if (tabId === "instrument") {
+        this.renderInstrumentVisualizer();
+      }
+    };
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener("click", () => activateTab(btn));
+    });
+
+    // Arrow key navigation between tabs
+    document.querySelector(".tab-nav").addEventListener("keydown", (e) => {
+      const idx = tabBtns.indexOf(document.activeElement);
+      if (idx === -1) return;
+      let next = -1;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % tabBtns.length;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx - 1 + tabBtns.length) % tabBtns.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = tabBtns.length - 1;
+      if (next !== -1) {
+        e.preventDefault();
+        tabBtns[next].focus();
+        activateTab(tabBtns[next]);
+      }
     });
   },
 
@@ -2144,9 +2264,13 @@ const ZynDemo = {
     // Oscilloscope toggle
     document.getElementById("scopeToggle").addEventListener("click", this.toggleScope.bind(this));
     // Force route toggle
-    document.getElementById("forceRouteToggle").addEventListener("change", (e) => {
-      this.forceRouteToActive = e.target.checked;
-      localStorage.setItem("zynForceRoute", e.target.checked ? "true" : "false");
+    document.getElementById("forceRouteToggle").addEventListener("click", (e) => {
+      this.forceRouteToActive = !this.forceRouteToActive;
+      const btn = e.currentTarget;
+      btn.classList.toggle("btn-secondary", !this.forceRouteToActive);
+      btn.classList.toggle("btn-success", this.forceRouteToActive);
+      btn.textContent = this.forceRouteToActive ? "\u2611 Route to Active" : "\u2610 Route to Active";
+      localStorage.setItem("zynForceRoute", this.forceRouteToActive ? "true" : "false");
     });
   },
 
