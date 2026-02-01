@@ -31,6 +31,7 @@ const ZynDemo = {
   recordingStartTime: null,     // Timestamp when recording started
   presets: [],      // User presets from localStorage
   typeNames: ["Pad", "Lead", "Bass", "Key", "Pluck", "Bell", "String", "Drum", "Perc", "FX"],
+  typeIcons: ["\u2601\uFE0F", "\uD83C\uDFB8", "\uD83D\uDD0A", "\uD83C\uDFB9", "\uD83E\uDE95", "\uD83D\uDD14", "\uD83C\uDFBB", "\uD83E\uDD41", "\uD83D\uDD28", "\u2728"],
   // Oscilloscope state
   scopeEnabled: true,
   scopeAnimId: null,
@@ -263,6 +264,10 @@ const ZynDemo = {
     const adjustedNote = note - 60 + (channelData.octave * 12);
     const voiceId = Z.noteOn(adjustedNote, channelData.instrument, gain);
     this.midiNotes[key] = voiceId;
+    // Highlight on-screen piano key
+    const pianoNote = note - 60;
+    const pianoKey = document.querySelector(`[data-note="${pianoNote}"]`);
+    if (pianoKey) pianoKey.classList.add("pressed");
     this.setActivityLight(channel, "#28a745");  // Green for note-on
   },
 
@@ -282,6 +287,13 @@ const ZynDemo = {
         this.setActivityLight(channel, "#dc3545");  // Red for note-off
       }
       delete this.midiNotes[key];
+      // Unhighlight on-screen piano key (only if no other channel holds the same note)
+      const stillHeld = Object.keys(this.midiNotes).some(k => k.endsWith(`_${note}`));
+      if (!stillHeld) {
+        const pianoNote = note - 60;
+        const pianoKey = document.querySelector(`[data-note="${pianoNote}"]`);
+        if (pianoKey) pianoKey.classList.remove("pressed");
+      }
     }
   },
 
@@ -336,6 +348,7 @@ const ZynDemo = {
     };
     this.saveChannels();
     this.updateChannelDisplay();
+    this.updateChannelCodeSample();
   },
 
   initChannels() {
@@ -394,6 +407,7 @@ const ZynDemo = {
     document.getElementById("mainVolume").value = pct;
     document.getElementById("mainVolumeLabel").textContent = `Volume: ${pct}%`;
     this.writeInstrumentToDiv();
+    this.updateCodeSample(data.seed);
     this.activePresetIndex = null;
   },
 
@@ -421,27 +435,36 @@ const ZynDemo = {
       input.readOnly = true;
       input.className = "channel-input";
       input.placeholder = "Unassigned";
+      input.title = `Instrument assigned to MIDI channel ${ch + 1}`;
 
       // Set Active button
       const setActiveBtn = document.createElement("button");
       setActiveBtn.id = `setActive${ch}`;
       setActiveBtn.className = "set-active-btn";
-      setActiveBtn.textContent = "Set Active";
+      setActiveBtn.textContent = "\u{1F3AF} Set Active";
       setActiveBtn.title = `Set channel ${ch + 1} as active`;
       setActiveBtn.addEventListener("click", () => this.setActiveChannel(ch));
 
       const clearBtn = document.createElement("button");
       clearBtn.id = `clearChannel${ch}`;
-      clearBtn.textContent = "Clear";
+      clearBtn.textContent = "\u{1F5D1} Clear";
       clearBtn.className = "clear-btn";
       clearBtn.title = "Clear channel assignment";
       clearBtn.addEventListener("click", () => this.clearChannel(ch));
 
-      row.appendChild(label);
-      row.appendChild(activityDot);
+      const header = document.createElement("div");
+      header.className = "channel-header";
+      header.appendChild(label);
+      header.appendChild(activityDot);
+
+      const buttons = document.createElement("div");
+      buttons.className = "channel-buttons";
+      buttons.appendChild(setActiveBtn);
+      buttons.appendChild(clearBtn);
+
+      row.appendChild(header);
+      row.appendChild(buttons);
       row.appendChild(input);
-      row.appendChild(setActiveBtn);
-      row.appendChild(clearBtn);
       grid.appendChild(row);
     }
     container.appendChild(grid);
@@ -453,6 +476,7 @@ const ZynDemo = {
     this.channels[ch] = null;
     this.saveChannels();
     this.updateChannelDisplay();
+    this.updateChannelCodeSample();
   },
 
   releaseAllNotesOnChannel(ch) {
@@ -494,7 +518,7 @@ const ZynDemo = {
       const setActiveBtn = document.getElementById(`setActive${ch}`);
       if (setActiveBtn) {
         setActiveBtn.disabled = isActive;
-        setActiveBtn.textContent = isActive ? "Active" : "Set Active";
+        setActiveBtn.textContent = isActive ? "\u2705 Active" : "\u{1F3AF} Set Active";
       }
       const row = document.getElementById(`channelRow${ch}`);
       if (row) {
@@ -618,6 +642,7 @@ const ZynDemo = {
     }
     this.saveChannels();
     this.updateChannelDisplay();
+    this.updateChannelCodeSample();
   },
 
   deleteChannelPreset(index) {
@@ -651,7 +676,7 @@ const ZynDemo = {
       const name = document.createElement("span");
       name.className = "preset-name";
       name.textContent = preset.name;
-      name.title = "Click to load";
+      name.title = "Click to load this channel configuration";
       name.addEventListener("click", () => this.loadChannelPreset(preset));
 
       const actions = document.createElement("div");
@@ -660,6 +685,7 @@ const ZynDemo = {
       const renameBtn = document.createElement("button");
       renameBtn.className = "preset-btn rename";
       renameBtn.textContent = "Rename";
+      renameBtn.title = "Rename this channel preset";
       renameBtn.addEventListener("click", () => {
         const newName = prompt("Enter new name:", preset.name);
         if (newName && newName.trim()) {
@@ -670,6 +696,7 @@ const ZynDemo = {
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "preset-btn delete";
       deleteBtn.textContent = "Delete";
+      deleteBtn.title = "Delete this channel preset";
       deleteBtn.addEventListener("click", () => {
         if (confirm(`Delete channel preset "${preset.name}"?`)) {
           this.deleteChannelPreset(index);
@@ -810,10 +837,30 @@ const ZynDemo = {
     this.updateInstrumentAndPushState(preset.seed);
   },
 
-  copyToClipboard(text) {
+  copyToClipboard(text, triggerEl) {
     navigator.clipboard.writeText(text).then(() => {
-      // Brief visual feedback could be added here
+      if (triggerEl) {
+        const orig = triggerEl.textContent;
+        triggerEl.textContent = "\u2705 Copied!";
+        setTimeout(() => { triggerEl.textContent = orig; }, 1200);
+      } else {
+        this.showCopyToast();
+      }
     });
+  },
+
+  showCopyToast() {
+    let toast = document.getElementById("copyToast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "copyToast";
+      toast.className = "copy-toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = "\u2705 Copied to clipboard";
+    toast.classList.add("show");
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => toast.classList.remove("show"), 1500);
   },
 
   renderPresetAccordion() {
@@ -834,29 +881,45 @@ const ZynDemo = {
       return;
     }
 
-    // Render each type that has presets
-    for (let type = 0; type <= 9; type++) {
-      if (!byType[type] || byType[type].length === 0) continue;
+    // Build tab bar
+    const tabBar = document.createElement("div");
+    tabBar.className = "preset-tabs";
+    const contentContainer = document.createElement("div");
+    contentContainer.className = "preset-tab-panels";
 
+    const types = [];
+    for (let type = 0; type <= 9; type++) {
+      if (byType[type] && byType[type].length > 0) types.push(type);
+    }
+
+    // Determine which tab to activate (preserve selection across re-renders)
+    let activeType = types.includes(this._activePresetTab) ? this._activePresetTab : types[0];
+
+    types.forEach((type) => {
       const typeName = this.typeNames[type];
-      const header = document.createElement("button");
-      header.className = "preset-type-header";
-      header.innerHTML = `<span>${typeName}</span><span class="count">${byType[type].length}</span>`;
-      header.addEventListener("click", () => {
-        const wasActive = header.classList.contains("active");
-        // Collapse all other categories
-        container.querySelectorAll(".preset-type-header.active").forEach(h => {
-          h.classList.remove("active");
-          h.nextElementSibling.style.display = "none";
-        });
-        if (!wasActive) {
-          header.classList.add("active");
-          content.style.display = "block";
-        }
+      const icon = this.typeIcons[type];
+
+      // Tab button
+      const tab = document.createElement("button");
+      tab.className = "preset-tab";
+      tab.innerHTML = `<span class="preset-tab-icon">${icon}</span><span class="preset-tab-label">${typeName}</span><span class="preset-tab-count">${byType[type].length}</span>`;
+      if (type === activeType) tab.classList.add("active");
+
+      // Tab content panel
+      const content = document.createElement("div");
+      content.className = "preset-tab-panel";
+      content.style.display = type === activeType ? "block" : "none";
+
+      tab.addEventListener("click", () => {
+        tabBar.querySelectorAll(".preset-tab").forEach(t => t.classList.remove("active"));
+        contentContainer.querySelectorAll(".preset-tab-panel").forEach(p => { p.style.display = "none"; });
+        tab.classList.add("active");
+        content.style.display = "block";
+        this._activePresetTab = type;
       });
 
-      const content = document.createElement("div");
-      content.className = "preset-type-content";
+      tabBar.appendChild(tab);
+      contentContainer.appendChild(content);
 
       const grid = document.createElement("div");
       grid.className = "preset-grid";
@@ -872,12 +935,13 @@ const ZynDemo = {
         const name = document.createElement("span");
         name.className = "preset-name";
         name.textContent = preset.name;
-        name.title = "Click to load";
+        name.title = `Click to load instrument seed ${preset.seed}`;
         name.addEventListener("click", () => this.loadPreset(preset));
 
         const seed = document.createElement("span");
         seed.className = "preset-seed";
         seed.textContent = preset.seed;
+        seed.title = "Instrument seed number";
 
         headerRow.appendChild(name);
         headerRow.appendChild(seed);
@@ -929,11 +993,12 @@ const ZynDemo = {
         copyBtn.className = "preset-btn copy";
         copyBtn.textContent = "Copy";
         copyBtn.title = "Copy seed to clipboard";
-        copyBtn.addEventListener("click", () => this.copyToClipboard(String(preset.seed)));
+        copyBtn.addEventListener("click", () => this.copyToClipboard(String(preset.seed), copyBtn));
 
         const renameBtn = document.createElement("button");
         renameBtn.className = "preset-btn rename";
         renameBtn.textContent = "Rename";
+        renameBtn.title = "Rename this preset";
         renameBtn.addEventListener("click", () => {
           const newName = prompt("Enter new name:", preset.name);
           if (newName && newName.trim()) {
@@ -943,6 +1008,7 @@ const ZynDemo = {
 
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "preset-btn delete";
+        deleteBtn.title = "Delete this preset";
         deleteBtn.textContent = "Delete";
         deleteBtn.addEventListener("click", () => {
           if (confirm(`Delete "${preset.name}"?`)) {
@@ -961,10 +1027,10 @@ const ZynDemo = {
       });
 
       content.appendChild(grid);
+    });
 
-      container.appendChild(header);
-      container.appendChild(content);
-    }
+    container.appendChild(tabBar);
+    container.appendChild(contentContainer);
   },
 
   handleSavePreset() {
@@ -1033,8 +1099,70 @@ const ZynDemo = {
     this.getInstrument(seed);
     this.writeInstrumentToDiv();
     const typeLabel = document.getElementById("instrumentTypeLabel");
-    if (typeLabel) typeLabel.textContent = this.typeNames[Math.abs(seed) % 10] || "";
+    const typeIdx = Math.abs(seed) % 10;
+    if (typeLabel) typeLabel.textContent = `${this.typeIcons[typeIdx]} ${this.typeNames[typeIdx]}`;
+    const headerSeed = document.getElementById("instrumentHeaderSeed");
+    if (headerSeed) headerSeed.textContent = `#${seed}`;
+    this.updateCodeSample(seed);
     if (this.channels[this.activeChannel]) this.syncActiveChannel();
+  },
+
+  updateCodeSample(seed) {
+    const el = document.getElementById("codeSample");
+    if (!el) return;
+    el.textContent =
+`<script src="Z.js"><\/script>
+<script>
+  // Initialise audio (must be called after user interaction)
+  Z.init();
+
+  // Generate instrument from seed ${seed}
+  const instrument = Z.getInstrument(${seed});
+
+  // Play middle C (one-shot with full ADSR envelope)
+  Z.play(0, instrument);
+
+  // Or use noteOn/noteOff for sustained notes:
+  // const voiceId = Z.noteOn(0, instrument);
+  // Z.noteOff(voiceId);
+<\/script>`;
+    this.updateChannelCodeSample();
+  },
+
+  updateChannelCodeSample() {
+    const el = document.getElementById("channelCodeSample");
+    if (!el) return;
+    const lines = [];
+    lines.push(`<script src="Z.js"><\/script>`);
+    lines.push(`<script>`);
+    lines.push(`  // Initialise audio (must be called after user interaction)`);
+    lines.push(`  Z.init();`);
+    lines.push(``);
+    const assigned = [];
+    for (let i = 0; i < 16; i++) {
+      const ch = this.channels[i];
+      if (ch) assigned.push({ index: i, seed: ch.seed, octave: ch.octave, volume: ch.volume });
+    }
+    if (assigned.length === 0) {
+      lines.push(`  // No channels configured`);
+    } else {
+      lines.push(`  // Set up instruments for each channel`);
+      lines.push(`  const channels = {};`);
+      assigned.forEach(ch => {
+        const type = this.typeNames[Math.abs(ch.seed) % 10];
+        lines.push(`  channels[${ch.index}] = {`);
+        lines.push(`    instrument: Z.getInstrument(${ch.seed}), // ${type}`);
+        lines.push(`    octave: ${ch.octave},`);
+        lines.push(`    volume: ${ch.volume}`);
+        lines.push(`  };`);
+      });
+      lines.push(``);
+      lines.push(`  // Play middle C on channel ${assigned[0].index}`);
+      lines.push(`  const ch = channels[${assigned[0].index}];`);
+      lines.push(`  Z.play(0, ch.instrument, ch.volume);`);
+    }
+    lines.push(`<\/script>`);
+    el.textContent = lines.join("\n");
   },
 
   handleKeyPress(event) {
@@ -1270,7 +1398,7 @@ const ZynDemo = {
     const duration = 10000;
     const startTime = Date.now();
 
-    btn.textContent = "Searching...";
+    btn.textContent = "\u{1F50D} Searching...";
     btn.classList.remove("btn-info");
     btn.classList.add("btn-warning");
     retryBtn.style.display = "none";
@@ -1282,7 +1410,7 @@ const ZynDemo = {
         // Done — apply best match
         clearInterval(this.findSimilarTimer);
         this.findSimilarTimer = null;
-        btn.textContent = "Find Similar";
+        btn.textContent = "\u{1F50D} Find Similar";
         btn.classList.remove("btn-warning");
         btn.classList.add("btn-info");
         retryBtn.style.display = "";
@@ -1306,7 +1434,7 @@ const ZynDemo = {
       }
       // Update button with progress
       const remaining = Math.ceil((duration - elapsed) / 1000);
-      btn.textContent = `Searching... ${remaining}s (${tested})`;
+      btn.textContent = `\u{1F50D} Searching... ${remaining}s (${tested})`;
     };
 
     tick();
@@ -1324,7 +1452,13 @@ const ZynDemo = {
       }
     });
     this.activeNotes = {};
-    // Clear MIDI notes and sustained notes
+    // Clear MIDI notes and unhighlight piano keys
+    Object.keys(this.midiNotes).forEach((key) => {
+      const midiNote = parseInt(key.split("_")[1]);
+      const pianoNote = midiNote - 60;
+      const pianoKey = document.querySelector(`[data-note="${pianoNote}"]`);
+      if (pianoKey) pianoKey.classList.remove("pressed");
+    });
     this.midiNotes = {};
     this.sustainedNotes = {};
     this.sustainPedal = {};
@@ -1450,13 +1584,13 @@ const ZynDemo = {
     const btn = document.getElementById("recordButton");
     btn.classList.remove("btn-secondary", "btn-danger", "btn-warning", "recording-pulse");
     if (this.isRecording) {
-      btn.textContent = "Stop Rec";
+      btn.textContent = "\u23F9\uFE0F Stop Rec";
       btn.classList.add("btn-danger", "recording-pulse");
     } else if (this.isRecordingArmed) {
-      btn.textContent = "Armed...";
+      btn.textContent = "\u{1F7E1} Armed...";
       btn.classList.add("btn-warning", "recording-pulse");
     } else {
-      btn.textContent = "Record";
+      btn.textContent = "\u{1F534} Record";
       btn.classList.add("btn-secondary");
     }
   },
@@ -1500,13 +1634,15 @@ const ZynDemo = {
       audio.preload = "metadata";
 
       const downloadBtn = document.createElement("button");
-      downloadBtn.textContent = "Save WAV";
-      downloadBtn.className = "btn-sm btn-success";
+      downloadBtn.textContent = "\u{1F4BE} Save WAV";
+      downloadBtn.className = "btn-success";
+      downloadBtn.title = "Export this clip as a WAV file";
       downloadBtn.addEventListener("click", () => this.downloadClipAsWav(index));
 
       const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete";
-      deleteBtn.className = "btn-sm btn-danger";
+      deleteBtn.textContent = "\u{1F5D1} Delete";
+      deleteBtn.className = "btn-danger";
+      deleteBtn.title = "Delete this clip";
       deleteBtn.addEventListener("click", () => this.deleteClip(index));
 
       row.appendChild(name);
@@ -1819,69 +1955,59 @@ const ZynDemo = {
   updateWidescreenSidePanels(isWide) {
     const sideContainer = document.querySelector(".side-panels");
     if (!sideContainer) return;
-    const sidePanelIds = ["tab-about", "tab-presets", "tab-recording", "tab-midi"];
+    const sidePanelIds = ["tab-about", "tab-presets", "tab-recording", "tab-midi", "tab-code"];
 
-    if (isWide && !sideContainer.querySelector(".side-panel-header")) {
-      // Entering widescreen — build accordion
+    if (isWide && !sideContainer.querySelector(".side-panel-tabs")) {
+      // Entering widescreen — build tab bar + content area
+      const tabBar = document.createElement("div");
+      tabBar.className = "side-panel-tabs";
+
       sidePanelIds.forEach((id, i) => {
         const panel = document.getElementById(id);
         if (!panel) return;
         const title = panel.dataset.panelTitle || id;
 
-        // Create header button
-        const header = document.createElement("button");
-        header.className = "side-panel-header";
-        header.dataset.sidePanelId = id;
-        header.innerHTML = `<span>${title}</span><span class="side-panel-arrow">\u25B8</span>`;
+        // Create tab button
+        const tab = document.createElement("button");
+        tab.className = "side-panel-tab";
+        tab.dataset.sidePanelId = id;
+        tab.textContent = title;
+        if (i === 0) tab.classList.add("active");
+        tabBar.appendChild(tab);
 
         // Create body wrapper and move all panel children into it
         const body = document.createElement("div");
         body.className = "side-panel-body";
         body.dataset.sidePanelId = id;
-        body.style.display = "none";
+        body.style.display = i === 0 ? "block" : "none";
         while (panel.firstChild) body.appendChild(panel.firstChild);
 
-        // Insert header and body directly into .side-panels
-        sideContainer.insertBefore(header, panel);
         sideContainer.insertBefore(body, panel);
 
-        // Click handler — exclusive expand
-        header.addEventListener("click", () => {
-          const wasActive = header.classList.contains("active");
-          // Collapse all
-          sideContainer.querySelectorAll(".side-panel-header").forEach(h => {
-            h.classList.remove("active");
-          });
-          sideContainer.querySelectorAll(".side-panel-body").forEach(b => {
-            b.style.display = "none";
-          });
-          if (!wasActive) {
-            header.classList.add("active");
-            body.style.display = "block";
-            // Trigger re-renders for content that needs layout
-            if (id === "tab-recording") this.updateRecordingTabState();
-          }
-        });
-
-        // Auto-expand first panel
-        if (i === 0) {
-          header.classList.add("active");
+        // Click handler — switch tabs
+        tab.addEventListener("click", () => {
+          sideContainer.querySelectorAll(".side-panel-tab").forEach(t => t.classList.remove("active"));
+          sideContainer.querySelectorAll(".side-panel-body").forEach(b => { b.style.display = "none"; });
+          tab.classList.add("active");
           body.style.display = "block";
-        }
+          if (id === "tab-recording") this.updateRecordingTabState();
+        });
       });
-    } else if (!isWide && sideContainer.querySelector(".side-panel-header")) {
+
+      sideContainer.insertBefore(tabBar, sideContainer.firstChild);
+    } else if (!isWide && sideContainer.querySelector(".side-panel-tabs")) {
       // Leaving widescreen — restore original DOM
       sidePanelIds.forEach(id => {
         const panel = document.getElementById(id);
         if (!panel) return;
         const body = sideContainer.querySelector(`.side-panel-body[data-side-panel-id="${id}"]`);
-        const header = sideContainer.querySelector(`.side-panel-header[data-side-panel-id="${id}"]`);
         if (body) {
           while (body.firstChild) panel.appendChild(body.firstChild);
           body.remove();
         }
-        if (header) header.remove();
       });
+      const tabBar = sideContainer.querySelector(".side-panel-tabs");
+      if (tabBar) tabBar.remove();
     }
   },
 
@@ -1938,6 +2064,21 @@ const ZynDemo = {
     document.getElementById("randomInstrumentButton").addEventListener("click", this.handleRandomInstrument.bind(this));
     document.getElementById("findSimilarButton").addEventListener("click", () => this.handleFindSimilar(false));
     document.getElementById("retrySimilarButton").addEventListener("click", () => this.handleFindSimilar(true));
+    document.getElementById("copyHeaderSeed").addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.copyToClipboard(String(this.randInstrumentSeed), document.getElementById("copyHeaderSeed"));
+    });
+    document.getElementById("copyJsonButton").addEventListener("click", () => {
+      this.copyToClipboard(JSON.stringify(this.randInstrument, null, 2), document.getElementById("copyJsonButton"));
+    });
+    document.getElementById("copyCodeButton").addEventListener("click", () => {
+      const code = document.getElementById("codeSample").textContent;
+      this.copyToClipboard(code, document.getElementById("copyCodeButton"));
+    });
+    document.getElementById("copyChannelCodeButton").addEventListener("click", () => {
+      const code = document.getElementById("channelCodeSample").textContent;
+      this.copyToClipboard(code, document.getElementById("copyChannelCodeButton"));
+    });
     document.getElementById("stopAllButton").addEventListener("click", this.handleStopAll.bind(this));
     document.getElementById("recordButton").addEventListener("click", this.toggleRecording.bind(this));
     document.getElementById("mainVolume").addEventListener("input", (e) => {

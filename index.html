@@ -3,26 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zyn Demo</title>
+    <title>Zyn</title>
     <script src="./Z.js"></script>
     <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
     <div class="container">
-      <header>
-        <h1>Zyn Demo</h1>
+      <header class="page-header">
+        <h1>Zyn</h1>
+        <a href="https://github.com/AlexanderParker/zyn" class="github-link" title="View source code on GitHub">
+          <img src="https://github.com/favicon.ico" alt="" />
+          GitHub
+        </a>
       </header>
 
       <!-- Piano Section - Always Visible -->
       <section class="piano-section">
-        <div id="oscilloscopeContainer" class="oscilloscope-container">
+        <div id="oscilloscopeContainer" class="oscilloscope-container" title="Oscilloscope — visual waveform of the audio output">
           <canvas id="oscilloscopeCanvas"></canvas>
         </div>
-        <div class="piano" id="pianoKeyboard"></div>
+        <div class="piano" id="pianoKeyboard" title="Click keys to play notes, or use your QWERTY keyboard"></div>
         <div class="controls-panel">
           <div class="control-group">
             <label for="octaveSelect">Octave</label>
-            <select id="octaveSelect">
+            <select id="octaveSelect" title="Transpose keyboard up or down by octaves">
               <option value="-3">-3</option>
               <option value="-2">-2</option>
               <option value="-1">-1</option>
@@ -34,27 +38,35 @@
           </div>
           <div class="control-group" style="flex: 1;">
             <label for="mainVolume" id="mainVolumeLabel">Volume: 100%</label>
-            <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 140px;" />
+            <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 140px;" title="Master volume (0-500%)" />
           </div>
           <div class="control-group">
-            <button id="scopeToggle" class="btn-secondary btn-sm">Scope</button>
-            <button id="stopAllButton" class="btn-danger">Stop All</button>
+            <button id="scopeToggle" class="btn-secondary" title="Toggle oscilloscope display">&#128200; Scope</button>
+            <button id="stopAllButton" class="btn-danger" title="Stop all playing sounds immediately">&#9632; Stop All</button>
           </div>
         </div>
       </section>
 
       <!-- Tab Navigation -->
       <nav class="tab-nav">
-        <button class="tab-btn active" data-tab="about">About</button>
-        <button class="tab-btn" data-tab="presets">Presets</button>
-        <button class="tab-btn" data-tab="instrument">Instrument</button>
-        <button class="tab-btn" data-tab="recording">Recording</button>
-        <button class="tab-btn" data-tab="midi">MIDI</button>
+        <button class="tab-btn active" data-tab="about" title="About Zyn and keyboard controls">&#8505;&#65039; About</button>
+        <button class="tab-btn" data-tab="presets" title="Browse and manage saved presets">&#128278; Presets</button>
+        <button class="tab-btn" data-tab="instrument" title="Generate and explore instruments">&#127929; Instrument</button>
+        <button class="tab-btn" data-tab="recording" title="Record and export audio clips">&#128308; Recording</button>
+        <button class="tab-btn" data-tab="midi" title="Configure MIDI controller and channels">&#127928; MIDI</button>
+        <button class="tab-btn" data-tab="code" title="Code snippet for the current instrument">&#128187; Code</button>
       </nav>
 
       <div class="tab-panels">
       <!-- Tab: Instrument -->
       <div id="tab-instrument" class="tab-content" data-panel-title="Instrument">
+        <div id="instrumentHeader" class="instrument-header">
+          <span>&#127929; Instrument</span>
+          <span class="instrument-header-seed">
+            <span id="instrumentHeaderSeed"></span>
+            <button id="copyHeaderSeed" class="btn-icon" title="Copy seed to clipboard">&#128203;</button>
+          </span>
+        </div>
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to use the Instrument Generator
         </div>
@@ -62,72 +74,82 @@
           <ul>
             <li><strong>Generate instruments:</strong> Select a type and click "Generate Random", or enter a seed number directly</li>
             <li><strong>Browse seeds:</strong> Use + and - keys to cycle through instrument seeds</li>
-            <li><strong>Instrument types:</strong> There are 10 types (Pad, Lead, Bass, Key, Pluck, Bell, String, Drum, Perc, FX) determined by the last digit of the seed</li>
+            <li><strong>Find similar:</strong> Click "Find Similar" to search for instruments that sound like the current one. The search runs for 10 seconds, testing thousands of seeds in the same type. Use "Retry" to search again using the original instrument as reference</li>
+            <li><strong>Instrument types:</strong> There are 10 types (0 Pad, 1 Lead, 2 Bass, 3 Key, 4 Pluck, 5 Bell, 6 String, 7 Drum, 8 Perc, 9 FX) determined by the last digit of the seed</li>
           </ul>
         </div>
 
         <div id="instrumentVisualizer" class="instrument-viz"></div>
-        <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
-          View Raw JSON
-        </div>
-        <div class="tab-help-content">
-          <pre id="instrumentJson"></pre>
-        </div>
 
         <div class="divider">
           <label style="margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);">Generator</label>
-          <div class="control-group" style="margin-bottom: var(--space-4);">
-            <label for="instrumentSeedInput">Seed</label>
-            <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" style="width: 140px;" />
-            <span id="instrumentTypeLabel" style="font-weight: 500; color: var(--text-secondary);"></span>
-            <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
-          </div>
-
-          <div id="typeRadios">
-            <label style="margin-bottom: var(--space-2); display: block;">Type:</label>
-            <div class="type-radios">
-              <label class="type-radio"><input type="radio" name="instrumentType" value="any" checked /> Any</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="0" /> Pad</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="1" /> Lead</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="2" /> Bass</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="3" /> Key</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="4" /> Pluck</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="5" /> Bell</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="6" /> String</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="7" /> Drum</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="8" /> Perc</label>
-              <label class="type-radio"><input type="radio" name="instrumentType" value="9" /> FX</label>
+          <div class="generator-row" style="margin-bottom: var(--space-3);">
+            <div class="control-group">
+              <label for="instrumentSeedInput">Seed</label>
+              <input id="instrumentSeedInput" type="number" value="0" aria-describedby="seedHelp" style="width: 140px;" title="Enter any integer to generate an instrument from that seed" />
+              <span id="instrumentTypeLabel" style="font-weight: 500; color: var(--text-secondary);"></span>
+              <span id="seedHelp" class="sr-only">Enter a number to generate a specific instrument</span>
+            </div>
+            <div class="control-group">
+              <button id="randomInstrumentButton" class="btn-success" title="Generate a random instrument of the selected type">&#127922; Generate Random</button>
+              <button id="findSimilarButton" class="btn-info" title="Search for instruments similar to the current one">&#128269; Find Similar</button>
+              <button id="retrySimilarButton" class="btn-secondary" style="display: none;" title="Search again using the original instrument as reference">&#128260; Retry</button>
             </div>
           </div>
 
-          <div class="generator-row" style="margin-top: var(--space-3);">
-            <button id="randomInstrumentButton" class="btn-success">Generate Random</button>
-            <button id="findSimilarButton" class="btn-info">Find Similar</button>
-            <button id="retrySimilarButton" class="btn-secondary" style="display: none;">Retry</button>
+          <div id="typeRadios">
+            <div class="type-radios">
+              <label class="type-radio" title="Generate any instrument type"><input type="radio" name="instrumentType" value="any" checked /><span class="type-icon">&#127922;</span><span class="type-label">Any</span></label>
+              <label class="type-radio" title="Pad — slow attack, sustained, atmospheric"><input type="radio" name="instrumentType" value="0" /><span class="type-icon">&#9729;&#65039;</span><span class="type-label">Pad (0)</span></label>
+              <label class="type-radio" title="Lead — medium attack, expressive"><input type="radio" name="instrumentType" value="1" /><span class="type-icon">&#127928;</span><span class="type-label">Lead (1)</span></label>
+              <label class="type-radio" title="Bass — punchy, short attack"><input type="radio" name="instrumentType" value="2" /><span class="type-icon">&#128266;</span><span class="type-label">Bass (2)</span></label>
+              <label class="type-radio" title="Key — piano-like, medium decay"><input type="radio" name="instrumentType" value="3" /><span class="type-icon">&#127929;</span><span class="type-label">Key (3)</span></label>
+              <label class="type-radio" title="Pluck — very short decay, no sustain"><input type="radio" name="instrumentType" value="4" /><span class="type-icon">&#129685;</span><span class="type-label">Pluck (4)</span></label>
+              <label class="type-radio" title="Bell — sharp attack, long decay, metallic"><input type="radio" name="instrumentType" value="5" /><span class="type-icon">&#128276;</span><span class="type-label">Bell (5)</span></label>
+              <label class="type-radio" title="String — slow attack, sustained, bowed"><input type="radio" name="instrumentType" value="6" /><span class="type-icon">&#127931;</span><span class="type-label">String (6)</span></label>
+              <label class="type-radio" title="Drum — very percussive, noise-based"><input type="radio" name="instrumentType" value="7" /><span class="type-icon">&#129345;</span><span class="type-label">Drum (7)</span></label>
+              <label class="type-radio" title="Perc — percussive, pitched, tuned"><input type="radio" name="instrumentType" value="8" /><span class="type-icon">&#128296;</span><span class="type-label">Perc (8)</span></label>
+              <label class="type-radio" title="FX — special effects, experimental"><input type="radio" name="instrumentType" value="9" /><span class="type-icon">&#10024;</span><span class="type-label">FX (9)</span></label>
+            </div>
           </div>
         </div>
 
         <div class="divider">
           <label style="margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);">Save as Preset</label>
           <div class="save-preset-row">
-            <input type="text" id="presetNameInput" placeholder="Enter preset name..." />
-            <button id="savePresetButton" class="btn-success">Save Current</button>
+            <input type="text" id="presetNameInput" placeholder="Enter preset name..." title="Name for the saved preset" />
+            <button id="savePresetButton" class="btn-success" title="Save the current instrument seed as a named preset">&#128190; Save Current</button>
+          </div>
+        </div>
+
+        <div class="divider">
+          <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
+            View Raw JSON
+          </div>
+          <div class="tab-help-content">
+            <div class="json-section-header">
+              <button id="copyJsonButton" class="btn-secondary btn-sm" title="Copy JSON to clipboard">&#128203; Copy JSON</button>
+            </div>
+            <pre id="instrumentJson"></pre>
           </div>
         </div>
       </div>
 
       <div class="side-panels">
       <!-- Tab: About -->
-      <div id="tab-about" class="tab-content active" data-panel-title="About">
-        <h2 style="margin-top: 0;">Welcome to Zyn Demo</h2>
+      <div id="tab-about" class="tab-content active" data-panel-title="&#8505;&#65039; About">
+        <h2 style="margin-top: 0;">Welcome to Zyn</h2>
         <p>
-          Zyn is a small JS audio synthesizer which clocks in at around 9kb (~3.3kb gzipped).
-          You can read all about it on GitHub <a href="https://github.com/AlexanderParker/zyn">here</a>.
+          <strong>Z.js</strong> is a small, standalone JS audio synthesizer (~9kb, ~3.3kb gzipped) that
+          generates instruments from simple integer seeds. It can be dropped into any web project &mdash;
+          games, demos, creative tools &mdash; anywhere you need sound without heavy dependencies.
         </p>
         <p>
-          This interactive tool allows you to explore procedurally generated synthesizer instruments.
-          Use your computer keyboard, MIDI controller, or the on-screen piano to play notes and
-          experiment with different instrument seeds.
+          This playground is built on top of Z.js and lets you explore, audition, and bookmark its
+          procedurally generated instruments. Each instrument is defined entirely by its
+          <strong>seed number</strong> &mdash; that integer is all you need to recreate the exact same
+          sound in your own code. Use your computer keyboard, a MIDI controller, or the on-screen piano
+          to play notes. Check the <strong>Code</strong> tab for ready-to-use snippets.
         </p>
 
         <div class="notice" role="alert">
@@ -142,17 +164,10 @@
           <li><strong>+ / -:</strong> Browse instrument seeds</li>
           <li><strong>Escape:</strong> Stop all sounds</li>
         </ul>
-
-        <div style="margin-top: var(--space-5);">
-          <a href="https://github.com/AlexanderParker/zyn" class="github-link">
-            <img src="https://github.com/favicon.ico" alt="" />
-            View on GitHub
-          </a>
-        </div>
       </div>
 
       <!-- Tab: Presets -->
-      <div id="tab-presets" class="tab-content" data-panel-title="Presets">
+      <div id="tab-presets" class="tab-content" data-panel-title="&#128278; Presets">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to use Presets
         </div>
@@ -168,14 +183,14 @@
         <div id="presetAccordion" class="preset-accordion"></div>
 
         <div class="divider" style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
-          <button id="exportPresetsButton" class="btn-secondary">Export Presets</button>
-          <button id="importPresetsButton" class="btn-secondary">Import Presets</button>
+          <button id="exportPresetsButton" class="btn-secondary" title="Export all presets to a JSON file">&#128228; Export Presets</button>
+          <button id="importPresetsButton" class="btn-secondary" title="Import presets from a JSON file">&#128229; Import Presets</button>
           <input type="file" id="importFileInput" accept=".json" style="display: none;" />
         </div>
       </div>
 
       <!-- Tab: Recording -->
-      <div id="tab-recording" class="tab-content" data-panel-title="Recording">
+      <div id="tab-recording" class="tab-content" data-panel-title="&#128308; Recording">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to Record Audio
         </div>
@@ -189,7 +204,7 @@
         </div>
 
         <div class="control-group" style="margin-bottom: var(--space-4);">
-          <button id="recordButton" class="btn-secondary">Record</button>
+          <button id="recordButton" class="btn-secondary" title="Arm recording — play a note to start capturing audio">&#128308; Record</button>
           <span id="recordingSize" style="font-size: 0.875rem; color: var(--accent-danger); display: none;"></span>
         </div>
 
@@ -207,7 +222,7 @@
       </div>
 
       <!-- Tab: MIDI -->
-      <div id="tab-midi" class="tab-content" data-panel-title="MIDI">
+      <div id="tab-midi" class="tab-content" data-panel-title="&#127928; MIDI">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to use MIDI
         </div>
@@ -223,17 +238,17 @@
         </div>
 
         <div class="control-group" style="margin-bottom: var(--space-4);">
-          <button id="enableMidiButton" class="btn-secondary">Enable MIDI</button>
+          <button id="enableMidiButton" class="btn-secondary" title="Request MIDI access and connect your controller">&#127928; Enable MIDI</button>
           <span id="midiStatusWrapper" class="control-group" style="display: none; border: 2px solid var(--accent-success); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 0.875rem;">
             <span id="midiDot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 8px var(--accent-success);"></span>
             <span>MIDI: <span id="midiStatus"></span></span>
-            <button id="disableMidiButton" class="btn-danger btn-sm">Disable</button>
+            <button id="disableMidiButton" class="btn-danger btn-sm" title="Disconnect MIDI controller">Disable</button>
           </span>
         </div>
 
         <div class="control-group" style="margin-bottom: var(--space-4);">
           <label style="display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; margin: 0;">
-            <input type="checkbox" id="forceRouteToggle" style="accent-color: var(--accent-secondary); width: 16px; height: 16px;" />
+            <input type="checkbox" id="forceRouteToggle" style="accent-color: var(--accent-secondary); width: 16px; height: 16px;" title="Send all MIDI input to the active channel instead of the controller's channel" />
             Route MIDI to active channel
           </label>
         </div>
@@ -244,16 +259,36 @@
         <div class="divider">
           <h3 style="font-size: 1rem; margin: 0 0 var(--space-3) 0; color: var(--text-primary);">Channel Presets</h3>
           <div class="save-preset-row">
-            <input type="text" id="channelPresetNameInput" placeholder="Enter channel preset name..." />
-            <button id="saveChannelPresetButton" class="btn-success">Save Channels</button>
+            <input type="text" id="channelPresetNameInput" placeholder="Enter channel preset name..." title="Name for the saved channel configuration" />
+            <button id="saveChannelPresetButton" class="btn-success" title="Save all 16 channel assignments as a preset">&#128190; Save Channels</button>
           </div>
           <div id="channelPresetsContainer"></div>
           <div class="divider" style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
-            <button id="exportChannelPresetsButton" class="btn-secondary">Export Channel Presets</button>
-            <button id="importChannelPresetsButton" class="btn-secondary">Import Channel Presets</button>
+            <button id="exportChannelPresetsButton" class="btn-secondary" title="Export channel presets to a JSON file">&#128228; Export Channel Presets</button>
+            <button id="importChannelPresetsButton" class="btn-secondary" title="Import channel presets from a JSON file">&#128229; Import Channel Presets</button>
             <input type="file" id="importChannelFileInput" accept=".json" style="display: none;" />
           </div>
         </div>
+      </div>
+      <!-- Tab: Code -->
+      <div id="tab-code" class="tab-content" data-panel-title="&#128187; Code">
+        <h3 style="font-size: 0.9rem; margin: 0 0 var(--space-2) 0; color: var(--text-primary);">Single Instrument</h3>
+        <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.85rem;">
+          Use the current instrument seed in your own project.
+        </p>
+        <div class="code-sample-header">
+          <button id="copyCodeButton" class="btn-secondary btn-sm" title="Copy code snippet to clipboard">&#128203; Copy Code</button>
+        </div>
+        <pre id="codeSample" class="code-sample"></pre>
+
+        <h3 style="font-size: 0.9rem; margin: var(--space-5) 0 var(--space-2) 0; color: var(--text-primary);">Multi-Channel Setup</h3>
+        <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.85rem;">
+          Initialise all instruments from your current MIDI channel configuration.
+        </p>
+        <div class="code-sample-header">
+          <button id="copyChannelCodeButton" class="btn-secondary btn-sm" title="Copy multi-channel code to clipboard">&#128203; Copy Code</button>
+        </div>
+        <pre id="channelCodeSample" class="code-sample"></pre>
       </div>
       </div>
       </div>
