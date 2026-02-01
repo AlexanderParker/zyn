@@ -1987,8 +1987,9 @@ const ZynDemo = {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     const pad = 4;
+    const bottomPad = 14;
     const drawW = w - pad * 2;
-    const drawH = h - pad * 2;
+    const drawH = h - pad - bottomPad;
 
     // ADSR: {A: [time, level], D: [time, level], S: [time, level], R: [time, level]}
     const aTime = adsr.A[0], aLevel = adsr.A[1];
@@ -2001,6 +2002,7 @@ const ZynDemo = {
 
     const timeToX = (t) => pad + (t / totalTime) * drawW;
     const levelToY = (l) => pad + drawH - (l * drawH);
+    const fmtTime = (t) => t >= 1 ? t.toFixed(1) + "s" : Math.round(t * 1000) + "ms";
 
     // Build points
     const points = [
@@ -2033,7 +2035,15 @@ const ZynDemo = {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Phase labels
+    // Draw dots at each point
+    for (let i = 1; i < points.length; i++) {
+      ctx.beginPath();
+      ctx.arc(points[i][0], points[i][1], 2, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    // Phase labels between points
     ctx.font = "9px sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.3)";
     ctx.textAlign = "center";
@@ -2046,7 +2056,23 @@ const ZynDemo = {
     ];
     for (let i = 0; i < 4; i++) {
       if (xMids[i] - (i > 0 ? xMids[i-1] : pad) > 12) {
-        ctx.fillText(labels[i], xMids[i], h - 2);
+        ctx.fillText(labels[i], xMids[i], h - bottomPad - 1);
+      }
+    }
+
+    // Time labels at each point
+    ctx.font = "8px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    const phaseTimes = [aTime, dTime, sTime, rTime];
+    let lastLabelEnd = 0;
+    for (let i = 0; i < 4; i++) {
+      const label = fmtTime(phaseTimes[i]);
+      const x = points[i + 1][0];
+      const labelW = ctx.measureText(label).width;
+      const labelLeft = x - labelW / 2;
+      if (labelLeft > lastLabelEnd + 2) {
+        ctx.fillText(label, x, h - 2);
+        lastLabelEnd = x + labelW / 2;
       }
     }
   },

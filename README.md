@@ -1,6 +1,6 @@
 # ZYN.JS
 
-A small JS audio synthesizer (~8.8kb minified, ~3.2kb gzipped) that generates a wide range of instruments from simple integer seeds.
+A small JS audio synthesizer (~8.9kb minified, ~3.2kb gzipped) that generates a wide range of instruments from simple integer seeds.
 
 It could be useful for small code-golf projects, js13k etc. It's not designed to be extremely controllable, the idea is to allow a wide range of sounds to be generated from simple integer seeds.
 

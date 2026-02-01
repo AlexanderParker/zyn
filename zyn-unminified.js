@@ -14,6 +14,8 @@ let Z = {
   ctx: null,
   // Master gain node for output (allows recording tap)
   masterGain: null,
+  // Dynamics compressor to prevent clipping with polyphony
+  compressor: null,
   // Track if audio has been warmed up
   warmedUp: false,
   // Maximum number of cached effect nodes before cleanup
@@ -22,7 +24,15 @@ let Z = {
   init: () => {
     Z.ctx = new (window.AudioContext || window.webkitAudioContext)();
     Z.masterGain = Z.ctx.createGain();
-    Z.masterGain.connect(Z.ctx.destination);
+    // Insert compressor between master gain and destination to prevent clipping
+    Z.compressor = Z.ctx.createDynamicsCompressor();
+    Z.compressor.threshold.value = -12;
+    Z.compressor.knee.value = 6;
+    Z.compressor.ratio.value = 8;
+    Z.compressor.attack.value = 0.003;
+    Z.compressor.release.value = 0.15;
+    Z.masterGain.connect(Z.compressor);
+    Z.compressor.connect(Z.ctx.destination);
   },
   // Warm up the audio context to eliminate first-play delay
   warmUp: () => {
