@@ -52,8 +52,9 @@
         <button class="tab-btn" data-tab="midi">MIDI</button>
       </nav>
 
+      <div class="tab-panels">
       <!-- Tab: Instrument -->
-      <div id="tab-instrument" class="tab-content">
+      <div id="tab-instrument" class="tab-content" data-panel-title="Instrument">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to use the Instrument Generator
         </div>
@@ -89,6 +90,8 @@
             </div>
           </div>
           <button id="randomInstrumentButton" class="btn-success">Generate Random</button>
+          <button id="findSimilarButton" class="btn-secondary btn-sm">Find Similar</button>
+          <button id="retrySimilarButton" class="btn-secondary btn-sm" style="display: none;">Retry</button>
         </div>
 
         <div class="divider">
@@ -111,7 +114,7 @@
       </div>
 
       <!-- Tab: Presets -->
-      <div id="tab-presets" class="tab-content">
+      <div id="tab-presets" class="tab-content" data-panel-title="Presets">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to use Presets
         </div>
@@ -134,7 +137,7 @@
       </div>
 
       <!-- Tab: Recording -->
-      <div id="tab-recording" class="tab-content">
+      <div id="tab-recording" class="tab-content" data-panel-title="Recording">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to Record Audio
         </div>
@@ -166,7 +169,7 @@
       </div>
 
       <!-- Tab: MIDI -->
-      <div id="tab-midi" class="tab-content">
+      <div id="tab-midi" class="tab-content" data-panel-title="MIDI">
         <div class="tab-help" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
           How to use MIDI
         </div>
@@ -216,10 +219,10 @@
       </div>
 
       <!-- Tab: About -->
-      <div id="tab-about" class="tab-content active">
+      <div id="tab-about" class="tab-content active" data-panel-title="About">
         <h2 style="margin-top: 0;">Welcome to Zyn Demo</h2>
         <p>
-          Zyn is a small JS audio synthesizer which clocks in at around 8.9kb (~3.2kb gzipped).
+          Zyn is a small JS audio synthesizer which clocks in at around 9kb (~3.3kb gzipped).
           You can read all about it on GitHub <a href="https://github.com/AlexanderParker/zyn">here</a>.
         </p>
         <p>
@@ -247,6 +250,7 @@
             View on GitHub
           </a>
         </div>
+      </div>
       </div>
     </div>
 

@@ -37,6 +37,8 @@ const ZynDemo = {
   analyserL: null,
   analyserR: null,
   scopeSplitter: null,
+  findSimilarTimer: null,
+  findSimilarTarget: null,  // Original instrument stored for retry
 
   init() {
     if (!Z.ctx) Z.init();
@@ -57,6 +59,21 @@ const ZynDemo = {
     this.drawScope();
     document.getElementById("scopeToggle").classList.remove("btn-secondary");
     document.getElementById("scopeToggle").classList.add("btn-info");
+    // Handle widescreen transitions and resize
+    let resizeTimer;
+    const widescreenQuery = window.matchMedia("(min-width: 1400px)");
+    const onResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        this.rebuildPianoKeyboard();
+        if (widescreenQuery.matches) {
+          this.renderInstrumentVisualizer();
+          this.updateRecordingTabState();
+        }
+      }, 150);
+    };
+    widescreenQuery.addEventListener("change", onResize);
+    window.addEventListener("resize", onResize);
     // Auto-enable MIDI if previously enabled
     if (localStorage.getItem("zynMidiEnabled") === "true") {
       this.initMIDI();
@@ -1032,17 +1049,48 @@ const ZynDemo = {
 
   createPianoKeyboard() {
     const keyboard = document.getElementById("pianoKeyboard");
-    const keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const blackNotes = [1, 3, 6, 8, 10];
+    const isBlack = (n) => blackNotes.includes(((n % 12) + 12) % 12);
 
-    for (let i = 0; i < 17; i++) {
+    // Measure actual white key width from CSS (handles mobile breakpoints)
+    const probe = document.createElement("div");
+    probe.className = "key white";
+    probe.style.visibility = "hidden";
+    keyboard.appendChild(probe);
+    const whiteKeyW = probe.offsetWidth + 2; // width + margin
+    keyboard.removeChild(probe);
+    const pianoStyle = getComputedStyle(keyboard);
+    const padPx = parseFloat(pianoStyle.paddingLeft) + parseFloat(pianoStyle.paddingRight);
+
+    // Calculate how many white keys fit
+    const availableW = keyboard.clientWidth - padPx;
+    const minWhiteKeys = 10; // original range has 10 white keys
+    const whiteKeyCount = Math.max(minWhiteKeys, Math.floor(availableW / whiteKeyW));
+
+    // Count white keys in candidate range, centered on note 8 (original midpoint)
+    const center = 8;
+    let lo = center, hi = center;
+    let whites = isBlack(center) ? 0 : 1;
+    while (whites < whiteKeyCount) {
+      lo--;
+      if (!isBlack(lo)) whites++;
+      if (whites >= whiteKeyCount) break;
+      hi++;
+      if (!isBlack(hi)) whites++;
+    }
+    // Extend to include any trailing black keys at edges
+    while (isBlack(lo)) lo--;
+    while (isBlack(hi)) hi++;
+
+    for (let i = lo; i <= hi; i++) {
       const key = document.createElement("div");
-      const note = i % 12;
-      key.className = `key ${["C#", "D#", "F#", "G#", "A#"].includes(keys[note]) ? "black" : "white"}`;
+      key.className = `key ${isBlack(i) ? "black" : "white"}`;
       key.dataset.note = i;
       const pianoKey = `piano_${i}`;
+      const noteVal = i;
       key.addEventListener("mousedown", () => {
         if (!this.activeNotes[pianoKey]) {
-          this.playNoteOn(i, pianoKey);
+          this.playNoteOn(noteVal, pianoKey);
         }
       });
       key.addEventListener("mouseup", () => this.playNoteOff(pianoKey));
@@ -1050,7 +1098,7 @@ const ZynDemo = {
       key.addEventListener("touchstart", (e) => {
         e.preventDefault();
         if (!this.activeNotes[pianoKey]) {
-          this.playNoteOn(i, pianoKey);
+          this.playNoteOn(noteVal, pianoKey);
         }
       });
       key.addEventListener("touchend", (e) => {
@@ -1058,6 +1106,20 @@ const ZynDemo = {
         this.playNoteOff(pianoKey);
       });
       keyboard.appendChild(key);
+    }
+  },
+
+  rebuildPianoKeyboard() {
+    const keyboard = document.getElementById("pianoKeyboard");
+    const prevKeyCount = keyboard.children.length;
+    keyboard.innerHTML = "";
+    this.createPianoKeyboard();
+    // Only re-highlight if key count changed
+    if (keyboard.children.length !== prevKeyCount) {
+      Object.values(this.activeNotes).forEach(({ note }) => {
+        const keyEl = document.querySelector(`[data-note="${note}"]`);
+        if (keyEl) keyEl.classList.add("pressed");
+      });
     }
   },
 
@@ -1109,8 +1171,121 @@ const ZynDemo = {
     }
     document.getElementById("instrumentSeedInput").value = newSeed;
     this.activePresetIndex = null;
+    this.findSimilarTarget = null;
+    document.getElementById("retrySimilarButton").style.display = "none";
     this.setVolume(1.0);
     this.updateInstrumentAndPushState(newSeed);
+  },
+
+  compareInstruments(a, b) {
+    let score = 0;
+    const oscCount = Math.min(a.oscs.length, b.oscs.length);
+    // Penalize different oscillator counts
+    score -= Math.abs(a.oscs.length - b.oscs.length) * 5;
+    for (let i = 0; i < oscCount; i++) {
+      const oa = a.oscs[i], ob = b.oscs[i];
+      // Waveform match
+      if (oa.waveform === ob.waveform) score += 3;
+      // Octave proximity
+      score -= Math.abs(oa.oct - ob.oct) * 2;
+      // Detune proximity
+      score -= Math.abs(oa.detune - ob.detune) * 0.5;
+      // Filter type match
+      if (oa.filterType === ob.filterType) score += 2;
+      // Filter Q proximity
+      score -= Math.abs(oa.filterQ - ob.filterQ) / 10;
+      // ADSR envelope similarity
+      const envScore = (ea, eb) => {
+        let s = 0;
+        for (const k of ["A", "D", "S", "R"]) {
+          s -= Math.abs(ea[k][0] - eb[k][0]) * 2; // time
+          s -= Math.abs(ea[k][1] - eb[k][1]) * 2; // level
+        }
+        return s;
+      };
+      score += envScore(oa.adsrGain, ob.adsrGain);
+      score += envScore(oa.adsrFilter, ob.adsrFilter);
+      score += envScore(oa.adsrFilterQ, ob.adsrFilterQ);
+      // Modulation presence match
+      if (!!oa.gLFO === !!ob.gLFO) score += 1;
+      if (!!oa.fLFO === !!ob.fLFO) score += 1;
+      if (!!oa.pLFO === !!ob.pLFO) score += 1;
+      if (!!oa.FM === !!ob.FM) score += 1;
+      if (!!oa.pENV === !!ob.pENV) score += 1;
+      // Effects presence match
+      if (!!oa.fx?.del === !!ob.fx?.del) score += 1;
+      if (!!oa.fx?.verb === !!ob.fx?.verb) score += 1;
+      // Effects parameter proximity when both present
+      if (oa.fx?.del && ob.fx?.del) {
+        score -= Math.abs(oa.fx.del.time - ob.fx.del.time) * 2;
+        score -= Math.abs(oa.fx.del.feedback - ob.fx.del.feedback) * 2;
+      }
+      if (oa.fx?.verb && ob.fx?.verb) {
+        score -= Math.abs(oa.fx.verb.duration - ob.fx.verb.duration) * 0.5;
+        score -= Math.abs(oa.fx.verb.decay - ob.fx.verb.decay) * 2;
+      }
+    }
+    return score;
+  },
+
+  handleFindSimilar(retry) {
+    if (this.findSimilarTimer) return; // Already running
+    const btn = document.getElementById("findSimilarButton");
+    const retryBtn = document.getElementById("retrySimilarButton");
+    // On retry, use the stored original target; otherwise capture current instrument
+    const target = retry && this.findSimilarTarget
+      ? this.findSimilarTarget
+      : this.randInstrument;
+    if (!retry) this.findSimilarTarget = target;
+    const typeIdx = Z.instrumentTypes.indexOf(target.type);
+    const searchTypeDigit = typeIdx >= 0 ? typeIdx : Math.abs(this.randInstrumentSeed) % 10;
+    let bestSeed = null;
+    let bestScore = -Infinity;
+    let tested = 0;
+    const duration = 10000;
+    const startTime = Date.now();
+
+    btn.textContent = "Searching...";
+    btn.classList.remove("btn-secondary");
+    btn.classList.add("btn-warning");
+    retryBtn.style.display = "none";
+
+    const batchSize = 100;
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= duration) {
+        // Done — apply best match
+        clearInterval(this.findSimilarTimer);
+        this.findSimilarTimer = null;
+        btn.textContent = "Find Similar";
+        btn.classList.remove("btn-warning");
+        btn.classList.add("btn-secondary");
+        retryBtn.style.display = "";
+        if (bestSeed !== null) {
+          document.getElementById("instrumentSeedInput").value = bestSeed;
+          this.activePresetIndex = null;
+          this.updateInstrumentAndPushState(bestSeed);
+        }
+        return;
+      }
+      // Test a batch of random seeds in the same type
+      for (let i = 0; i < batchSize; i++) {
+        const seed = Math.floor(Math.random() * Math.floor(Z.mInt / 10)) * 10 + searchTypeDigit;
+        const candidate = Z.getInstrument(seed);
+        const score = this.compareInstruments(target, candidate);
+        if (score > bestScore) {
+          bestScore = score;
+          bestSeed = seed;
+        }
+        tested++;
+      }
+      // Update button with progress
+      const remaining = Math.ceil((duration - elapsed) / 1000);
+      btn.textContent = `Searching... ${remaining}s (${tested})`;
+    };
+
+    tick();
+    this.findSimilarTimer = setInterval(tick, 100);
   },
 
   handleStopAll() {
@@ -1667,6 +1842,8 @@ const ZynDemo = {
       this.updateInstrumentAndPushState(parseInt(e.target.value));
     });
     document.getElementById("randomInstrumentButton").addEventListener("click", this.handleRandomInstrument.bind(this));
+    document.getElementById("findSimilarButton").addEventListener("click", () => this.handleFindSimilar(false));
+    document.getElementById("retrySimilarButton").addEventListener("click", () => this.handleFindSimilar(true));
     document.getElementById("stopAllButton").addEventListener("click", this.handleStopAll.bind(this));
     document.getElementById("recordButton").addEventListener("click", this.toggleRecording.bind(this));
     document.getElementById("mainVolume").addEventListener("input", (e) => {
@@ -1795,7 +1972,7 @@ const ZynDemo = {
     this.analyserR.getByteTimeDomainData(dataR);
 
     // Clear
-    ctx.fillStyle = "#0a0a14";
+    ctx.fillStyle = "#0a0a0a";
     ctx.fillRect(0, 0, w, h);
 
     // Center line
