@@ -48,6 +48,7 @@ const ZynDemo = {
   findSeedTimer: null,
   findSeedTarget: null,
   findSeedBestScore: null,
+  findSeedBestSeed: null,
 
   init() {
     if (!Z.ctx) Z.init();
@@ -2944,6 +2945,7 @@ const ZynDemo = {
       this.designedInstrument = { type: "custom", volume: 1.0, octave: 0, oscs: [this.createDefaultOsc()] };
     }
     this.renderDesignUI();
+    this.restoreFindSeedState();
   },
 
   renderDesignUI() {
@@ -3061,6 +3063,26 @@ const ZynDemo = {
     const headerLeft = document.createElement("div");
     headerLeft.className = "design-osc-header-left";
 
+    // Enable/disable toggle — before the title
+    const enableLabel = document.createElement("label");
+    enableLabel.className = "design-osc-enable";
+    enableLabel.title = osc.enabled ? "Oscillator enabled — click to disable" : "Oscillator disabled — click to enable";
+    const enableCb = document.createElement("input");
+    enableCb.type = "checkbox";
+    enableCb.checked = osc.enabled;
+    enableCb.addEventListener("mousedown", (e) => e.preventDefault()); // Prevent focus stealing
+    enableCb.addEventListener("change", (e) => {
+      e.stopPropagation();
+      osc.enabled = enableCb.checked;
+      card.classList.toggle("osc-disabled", !osc.enabled);
+      body.classList.toggle("disabled", !osc.enabled);
+      enableLabel.title = osc.enabled ? "Oscillator enabled — click to disable" : "Oscillator disabled — click to enable";
+      this.updateDesignedInstrument();
+    });
+    enableLabel.addEventListener("click", (e) => e.stopPropagation());
+    enableLabel.appendChild(enableCb);
+    headerLeft.appendChild(enableLabel);
+
     const chevron = document.createElement("span");
     chevron.className = "design-osc-chevron";
     chevron.textContent = "\u25BC";
@@ -3090,30 +3112,9 @@ const ZynDemo = {
 
     header.appendChild(headerLeft);
 
-    // Header right: enable toggle and remove button
+    // Header right: remove button
     const headerRight = document.createElement("div");
     headerRight.style.cssText = "display: flex; align-items: center; gap: var(--space-2);";
-
-    // Enable/disable toggle
-    const enableLabel = document.createElement("label");
-    enableLabel.className = "design-osc-enable";
-    enableLabel.title = osc.enabled ? "Oscillator enabled — click to disable" : "Oscillator disabled — click to enable";
-    const enableCb = document.createElement("input");
-    enableCb.type = "checkbox";
-    enableCb.checked = osc.enabled;
-    enableCb.addEventListener("mousedown", (e) => e.preventDefault()); // Prevent focus stealing
-    enableCb.addEventListener("change", (e) => {
-      e.stopPropagation();
-      osc.enabled = enableCb.checked;
-      card.classList.toggle("osc-disabled", !osc.enabled);
-      body.classList.toggle("disabled", !osc.enabled);
-      enableLabel.title = osc.enabled ? "Oscillator enabled — click to disable" : "Oscillator disabled — click to enable";
-      this.updateDesignedInstrument();
-    });
-    enableLabel.addEventListener("click", (e) => e.stopPropagation());
-    enableLabel.appendChild(enableCb);
-    enableLabel.appendChild(document.createTextNode(" On"));
-    headerRight.appendChild(enableLabel);
 
     if (this.designedInstrument.oscs.length > 1) {
       const removeBtn = document.createElement("button");
@@ -3793,7 +3794,7 @@ const ZynDemo = {
     saveBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
       if (!name) { alert("Please enter a name for the design"); return; }
-      this.designSaves.push({ name, instrument: JSON.parse(JSON.stringify(this.designedInstrument)), timestamp: Date.now() });
+      this.designSaves.push({ name, instrument: JSON.parse(JSON.stringify(this.designedInstrument)), bestSeed: this.findSeedBestSeed, bestScore: this.findSeedBestScore, timestamp: Date.now() });
       this.saveDesignSaves();
       nameInput.value = "";
       this.renderDesignSaves();
@@ -3895,7 +3896,9 @@ const ZynDemo = {
     // Reset find-seed state on any instrument edit
     if (this.findSeedTimer) { clearInterval(this.findSeedTimer); this.findSeedTimer = null; }
     this.findSeedBestScore = null;
+    this.findSeedBestSeed = null;
     this.findSeedTarget = null;
+    this.persistFindSeedState();
     const improveBtn = document.getElementById("findImprovedButton");
     if (improveBtn) { improveBtn.style.display = "none"; improveBtn.textContent = "\uD83D\uDD04 Find Improved"; }
     const loadBtn = document.getElementById("loadSeedInGenerator");
@@ -3915,6 +3918,41 @@ const ZynDemo = {
     if (jsonEl) jsonEl.textContent = JSON.stringify(this.designedInstrument, null, 2);
     this.updateDesignCodeSample();
     try { localStorage.setItem("zynCurrentDesign", JSON.stringify(this.designedInstrument)); } catch (e) { /* quota */ }
+  },
+
+  persistFindSeedState() {
+    try {
+      if (this.findSeedBestSeed !== null && this.findSeedBestScore !== null) {
+        localStorage.setItem("zynFindSeed", JSON.stringify({ seed: this.findSeedBestSeed, score: this.findSeedBestScore }));
+      } else {
+        localStorage.removeItem("zynFindSeed");
+      }
+    } catch (e) { /* quota */ }
+  },
+
+  restoreFindSeedState() {
+    try {
+      const stored = localStorage.getItem("zynFindSeed");
+      if (stored) {
+        const { seed, score } = JSON.parse(stored);
+        this.findSeedBestSeed = seed;
+        this.findSeedBestScore = score;
+        this.showFindSeedResult(seed, score);
+      }
+    } catch (e) { /* ignore */ }
+  },
+
+  showFindSeedResult(seed, score) {
+    const improveBtn = document.getElementById("findImprovedButton");
+    const loadBtn = document.getElementById("loadSeedInGenerator");
+    if (improveBtn) improveBtn.style.display = "";
+    if (seed !== null && loadBtn) {
+      loadBtn.style.display = "";
+      loadBtn.dataset.seed = seed;
+      const typeIdx = Math.abs(seed) % 10;
+      const pct = score !== null && score >= 0 ? ` ${score.toFixed(1)}%` : "";
+      loadBtn.textContent = `\u27A1 Load #${seed} (${this.typeNames[typeIdx]})${pct}`;
+    }
   },
 
   updateDesignCodeSample() {
@@ -3971,7 +4009,12 @@ const ZynDemo = {
       name.title = "Click to load this design";
       name.addEventListener("click", () => {
         this.designedInstrument = JSON.parse(JSON.stringify(design.instrument));
+        this.findSeedBestSeed = design.bestSeed ?? null;
+        this.findSeedBestScore = design.bestScore ?? null;
+        this.findSeedTarget = null;
+        this.persistFindSeedState();
         this.renderDesignUI();
+        this.showFindSeedResult(this.findSeedBestSeed, this.findSeedBestScore);
       });
       name.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); name.click(); }
@@ -4046,15 +4089,11 @@ const ZynDemo = {
       clearInterval(this.findSeedTimer);
       this.findSeedTimer = null;
       this.findSeedBestScore = score;
+      this.findSeedBestSeed = seed;
+      this.persistFindSeedState();
       if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
-      if (improveBtn) { improveBtn.style.display = ""; improveBtn.textContent = "\uD83D\uDD04 Find Improved"; }
-      if (seed !== null && loadBtn) {
-        loadBtn.style.display = "";
-        loadBtn.dataset.seed = seed;
-        const typeIdx = Math.abs(seed) % 10;
-        const pct = score !== null && score >= 0 ? ` ${score.toFixed(1)}%` : "";
-        loadBtn.textContent = `\u27A1 Load #${seed} (${this.typeNames[typeIdx]})${pct}`;
-      }
+      if (improveBtn) improveBtn.textContent = "\uD83D\uDD04 Find Improved";
+      this.showFindSeedResult(seed, score);
     };
 
     const tick = () => {

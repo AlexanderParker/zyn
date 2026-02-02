@@ -337,14 +337,13 @@
         </div>
         <div class="tab-help-content" tabindex="-1">
           <ul>
-            <li><strong>Add oscillators:</strong> Click "Add Oscillator" to add up to 5 oscillators. Each has its own waveform, octave, filter, and envelope settings</li>
-            <li><strong>Shape sounds:</strong> Configure waveform, octave offset, detune, and filter type/Q for each oscillator</li>
-            <li><strong>Envelopes:</strong> Every oscillator has a gain envelope (ADSR). Optionally enable filter, filter Q, and pitch envelopes</li>
-            <li><strong>Modulation:</strong> Add LFOs for gain, filter, or pitch. Enable FM synthesis or distortion</li>
-            <li><strong>Effects:</strong> Add shared delay and reverb effects</li>
-            <li><strong>Play live:</strong> While this tab is active, the keyboard plays your designed instrument</li>
-            <li><strong>Find Seed:</strong> Search for a seed-generated instrument that closely matches your design</li>
-            <li><strong>Save designs:</strong> Save, load, export, and import your instrument designs</li>
+            <li><strong>Design instruments:</strong> Build custom instruments from scratch by adding oscillators (up to 5), each with its own waveform, octave, detune, filter, and ADSR envelopes. Use global volume and octave offset to adjust the overall sound</li>
+            <li><strong>Shape sounds:</strong> Drag ADSR envelope points or type values directly. Enable filter, pitch, and filter Q envelopes per oscillator. Add LFOs, FM synthesis, distortion, delay, and reverb</li>
+            <li><strong>Toggle oscillators:</strong> Use the checkbox on each oscillator to enable or disable it without losing your settings</li>
+            <li><strong>Play live:</strong> The keyboard plays your designed instrument while this tab is active. Use the toggle button below the keyboard to switch between designed and generated instruments at any time</li>
+            <li><strong>Find Seed:</strong> Search for a seed-generated instrument that matches your design. The search scores candidates from 0-100% based on how closely they match your oscillator settings, envelopes, and effects. A perfect 100% match is unlikely since seeds generate from a fixed algorithm, but this is a powerful way to guide the random search &mdash; design roughly the sound you want, then find the closest seed match. Use "Find Improved" to keep searching for a better result</li>
+            <li><strong>Load from Generator:</strong> Copy the current generated instrument into the designer to use as a starting point, then tweak individual parameters</li>
+            <li><strong>Save designs:</strong> Save, load, rename, export, and import your instrument designs. The best matching seed and score are saved with each design</li>
           </ul>
         </div>
 
