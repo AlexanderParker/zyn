@@ -40,6 +40,14 @@ const ZynDemo = {
   scopeSplitter: null,
   findSimilarTimer: null,
   findSimilarTarget: null,  // Original instrument stored for retry
+  // Instrument Design state
+  designedInstrument: null,
+  designSaves: [],
+  isDesignActive: false,
+  useDesignedInstrument: false, // Manual toggle for keyboard playback
+  findSeedTimer: null,
+  findSeedTarget: null,
+  findSeedBestScore: null,
 
   init() {
     if (!Z.ctx) Z.init();
@@ -54,6 +62,9 @@ const ZynDemo = {
     this.createPianoKeyboard();
     this.renderPresetAccordion();
     this.setupPresetKeyboardNavigation();
+    this.setupFocusSentinels();
+    this.loadDesignSaves();
+    this.initDesignTab();
     this.initChannels();
     this.renderChannelPresets();
     // Start oscilloscope
@@ -426,6 +437,7 @@ const ZynDemo = {
 
       const label = document.createElement("label");
       label.className = "channel-label";
+      label.tabIndex = 0;
       label.textContent = `Channel ${ch + 1}`;
 
       // Activity light dot
@@ -447,14 +459,20 @@ const ZynDemo = {
       setActiveBtn.className = "set-active-btn";
       setActiveBtn.textContent = "\u{1F3AF} Set Active";
       setActiveBtn.title = `Set channel ${ch + 1} as active`;
-      setActiveBtn.addEventListener("click", () => this.setActiveChannel(ch));
+      setActiveBtn.addEventListener("click", () => {
+        if (setActiveBtn.getAttribute("aria-disabled") === "true") return;
+        this.setActiveChannel(ch);
+      });
 
       const clearBtn = document.createElement("button");
       clearBtn.id = `clearChannel${ch}`;
       clearBtn.textContent = "\u{1F5D1} Clear";
       clearBtn.className = "clear-btn";
       clearBtn.title = "Clear channel assignment";
-      clearBtn.addEventListener("click", () => this.clearChannel(ch));
+      clearBtn.addEventListener("click", () => {
+        if (clearBtn.getAttribute("aria-disabled") === "true") return;
+        this.clearChannel(ch);
+      });
 
       const header = document.createElement("div");
       header.className = "channel-header";
@@ -472,6 +490,26 @@ const ZynDemo = {
       grid.appendChild(row);
     }
     container.appendChild(grid);
+
+    // Arrow key navigation between channel labels
+    grid.addEventListener("keydown", (e) => {
+      const focused = document.activeElement;
+      if (!focused || !focused.classList.contains("channel-label")) return;
+      if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+      const labels = Array.from(grid.querySelectorAll(".channel-label"));
+      const idx = labels.indexOf(focused);
+      if (idx === -1) return;
+      let next = -1;
+      if (e.key === "ArrowDown") next = Math.min(idx + 1, labels.length - 1);
+      else if (e.key === "ArrowUp") next = Math.max(idx - 1, 0);
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = labels.length - 1;
+      if (next !== -1 && next !== idx) {
+        e.preventDefault();
+        labels[next].focus();
+        labels[next].scrollIntoView({ block: "nearest" });
+      }
+    });
   },
 
   clearChannel(ch) {
@@ -521,7 +559,7 @@ const ZynDemo = {
       // Update "Set Active" button
       const setActiveBtn = document.getElementById(`setActive${ch}`);
       if (setActiveBtn) {
-        setActiveBtn.disabled = isActive;
+        setActiveBtn.setAttribute("aria-disabled", isActive ? "true" : "false");
         setActiveBtn.textContent = isActive ? "\u2705 Active" : "\u{1F3AF} Set Active";
       }
       const row = document.getElementById(`channelRow${ch}`);
@@ -530,7 +568,7 @@ const ZynDemo = {
       }
       const clearBtn = document.getElementById(`clearChannel${ch}`);
       if (clearBtn) {
-        clearBtn.disabled = isActive;
+        clearBtn.setAttribute("aria-disabled", isActive ? "true" : "false");
       }
     }
   },
@@ -720,6 +758,26 @@ const ZynDemo = {
       grid.appendChild(item);
     });
     container.appendChild(grid);
+
+    // Arrow key navigation between channel preset names
+    grid.addEventListener("keydown", (e) => {
+      const focused = document.activeElement;
+      if (!focused || !focused.classList.contains("preset-name")) return;
+      if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+      const names = Array.from(grid.querySelectorAll(".preset-name"));
+      const idx = names.indexOf(focused);
+      if (idx === -1) return;
+      let next = -1;
+      if (e.key === "ArrowDown") next = Math.min(idx + 1, names.length - 1);
+      else if (e.key === "ArrowUp") next = Math.max(idx - 1, 0);
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = names.length - 1;
+      if (next !== -1 && next !== idx) {
+        e.preventDefault();
+        names[next].focus();
+        names[next].scrollIntoView({ block: "nearest" });
+      }
+    });
   },
 
   exportChannelPresets() {
@@ -893,6 +951,8 @@ const ZynDemo = {
     // Build tab bar
     const tabBar = document.createElement("div");
     tabBar.className = "preset-tabs";
+    tabBar.setAttribute("role", "tablist");
+    tabBar.setAttribute("aria-label", "Preset categories");
     const contentContainer = document.createElement("div");
     contentContainer.className = "preset-tab-panels";
 
@@ -904,25 +964,33 @@ const ZynDemo = {
     // Determine which tab to activate (preserve selection across re-renders)
     let activeType = types.includes(this._activePresetTab) ? this._activePresetTab : types[0];
 
-    types.forEach((type) => {
+    types.forEach((type, idx) => {
       const typeName = this.typeNames[type];
       const icon = this.typeIcons[type];
+      const isActive = type === activeType;
 
       // Tab button
       const tab = document.createElement("button");
       tab.className = "preset-tab";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", isActive ? "true" : "false");
+      tab.tabIndex = isActive ? 0 : -1;
       tab.innerHTML = `<span class="preset-tab-icon">${icon}</span><span class="preset-tab-label">${typeName}</span><span class="preset-tab-count">${byType[type].length}</span>`;
-      if (type === activeType) tab.classList.add("active");
+      if (isActive) tab.classList.add("active");
 
       // Tab content panel
       const content = document.createElement("div");
       content.className = "preset-tab-panel";
-      content.style.display = type === activeType ? "block" : "none";
+      content.setAttribute("role", "tabpanel");
+      content.tabIndex = 0;
+      content.style.display = isActive ? "block" : "none";
 
       tab.addEventListener("click", () => {
-        tabBar.querySelectorAll(".preset-tab").forEach(t => t.classList.remove("active"));
+        tabBar.querySelectorAll(".preset-tab").forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); t.tabIndex = -1; });
         contentContainer.querySelectorAll(".preset-tab-panel").forEach(p => { p.style.display = "none"; });
         tab.classList.add("active");
+        tab.setAttribute("aria-selected", "true");
+        tab.tabIndex = 0;
         content.style.display = "block";
         this._activePresetTab = type;
       });
@@ -954,11 +1022,19 @@ const ZynDemo = {
 
         const seed = document.createElement("span");
         seed.className = "preset-seed";
+        seed.tabIndex = 0;
         seed.textContent = preset.seed;
         seed.title = "Instrument seed number";
 
+        const seedCopyBtn = document.createElement("button");
+        seedCopyBtn.className = "btn-icon btn-xs";
+        seedCopyBtn.textContent = "\uD83D\uDCCB";
+        seedCopyBtn.title = "Copy seed to clipboard";
+        seedCopyBtn.addEventListener("click", (e) => { e.stopPropagation(); this.copyToClipboard(String(preset.seed), seedCopyBtn); });
+
         headerRow.appendChild(name);
         headerRow.appendChild(seed);
+        headerRow.appendChild(seedCopyBtn);
 
         // Controls row: octave, volume
         const controls = document.createElement("div");
@@ -1045,6 +1121,23 @@ const ZynDemo = {
 
     container.appendChild(tabBar);
     container.appendChild(contentContainer);
+
+    // Arrow key navigation for preset category tabs
+    tabBar.addEventListener("keydown", (e) => {
+      const tabs = Array.from(tabBar.querySelectorAll(".preset-tab"));
+      const idx = tabs.indexOf(document.activeElement);
+      if (idx === -1) return;
+      let next = -1;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % tabs.length;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx - 1 + tabs.length) % tabs.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = tabs.length - 1;
+      if (next !== -1) {
+        e.preventDefault();
+        tabs[next].focus();
+        tabs[next].click();
+      }
+    });
   },
 
   handleSavePreset() {
@@ -1184,11 +1277,19 @@ const ZynDemo = {
 
     // Alt+key shortcuts
     if (event.altKey && !event.ctrlKey && !event.metaKey) {
-      const tabMap = { "1": "about", "2": "presets", "3": "instrument", "4": "recording", "5": "midi", "6": "code" };
+      const tabMap = { "1": "about", "2": "presets", "3": "instrument", "4": "recording", "5": "midi", "6": "code", "7": "design" };
       if (tabMap[event.key]) {
         event.preventDefault();
-        const btn = document.querySelector(`.tab-btn[data-tab="${tabMap[event.key]}"]`);
-        if (btn) btn.click();
+        const tabId = tabMap[event.key];
+        // Try widescreen side panel tab first, fall back to narrow tab
+        const sideTab = document.querySelector(`.side-panel-tab[data-side-panel-id="tab-${tabId}"]`);
+        if (sideTab) {
+          sideTab.click();
+          sideTab.focus();
+        } else {
+          const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+          if (btn) btn.click();
+        }
         return;
       }
       const actionMap = { "g": () => this.handleRandomInstrument(), "s": () => this.handleFindSimilar(false), "d": () => this.handleFindSimilar(true), "r": () => this.toggleRecording() };
@@ -1308,14 +1409,53 @@ const ZynDemo = {
     }
   },
 
+  getActiveInstrument() {
+    if (this.useDesignedInstrument && this.designedInstrument) {
+      // Filter out disabled oscillators and return a playable version
+      const enabledOscs = this.designedInstrument.oscs.filter(o => o.enabled !== false);
+      if (enabledOscs.length === 0) return this.randInstrument; // Fallback if all disabled
+      return { ...this.designedInstrument, oscs: enabledOscs };
+    }
+    return this.randInstrument;
+  },
+
+  getActiveInstrumentSettings() {
+    // Returns { volume, octave } for the active instrument
+    if (this.useDesignedInstrument && this.designedInstrument) {
+      return {
+        volume: this.designedInstrument.volume ?? 1.0,
+        octave: this.designedInstrument.octave ?? 0
+      };
+    }
+    return { volume: 1.0, octave: 0 };
+  },
+
+  updateInstrumentToggle() {
+    const btn = document.getElementById("instrumentToggleBtn");
+    if (!btn) return;
+    if (this.useDesignedInstrument) {
+      btn.textContent = "\uD83C\uDFA8 Design";
+      btn.classList.remove("btn-secondary");
+      btn.classList.add("btn-info");
+      btn.title = "Playing designed instrument — click to switch to generated";
+    } else {
+      btn.textContent = "\uD83C\uDFB9 Generator";
+      btn.classList.remove("btn-info");
+      btn.classList.add("btn-secondary");
+      btn.title = "Playing generated instrument — click to switch to designed";
+    }
+  },
+
   playNoteOn(note, trackingKey) {
     // Start recording on first note if armed
     if (this.isRecordingArmed && !this.isRecording) {
       this.startRecording();
     }
-    const octave = parseInt(document.getElementById("octaveSelect").value);
-    const gain = this.volume;
-    const voiceId = Z.noteOn(note + octave * 12, this.randInstrument, gain);
+    const uiOctave = parseInt(document.getElementById("octaveSelect").value);
+    const instSettings = this.getActiveInstrumentSettings();
+    const octave = uiOctave + instSettings.octave;
+    const gain = this.volume * instSettings.volume;
+    const voiceId = Z.noteOn(note + octave * 12, this.getActiveInstrument(), gain);
     this.activeNotes[trackingKey] = { voiceId, note };
     const keyEl = document.querySelector(`[data-note="${note}"]`);
     if (keyEl) keyEl.classList.add("pressed");
@@ -1363,54 +1503,132 @@ const ZynDemo = {
   },
 
   compareInstruments(a, b) {
-    let score = 0;
-    const oscCount = Math.min(a.oscs.length, b.oscs.length);
-    // Penalize different oscillator counts
-    score -= Math.abs(a.oscs.length - b.oscs.length) * 5;
-    for (let i = 0; i < oscCount; i++) {
+    // Returns a normalized score from 0-100 where 100 is a perfect match
+    let totalWeight = 0;
+    let matchScore = 0;
+
+    // Helper: similarity between 0-1 based on difference within a range
+    const proximity = (v1, v2, maxDiff) => {
+      const diff = Math.abs(v1 - v2);
+      return Math.max(0, 1 - diff / maxDiff);
+    };
+
+    // Helper: ADSR envelope similarity (0-1)
+    const envSimilarity = (ea, eb) => {
+      if (!ea || !eb) return ea === eb ? 1 : 0;
+      let sum = 0;
+      for (const k of ["A", "D", "S", "R"]) {
+        // Times can vary widely, use log scale for comparison
+        const t1 = ea[k][0], t2 = eb[k][0];
+        const timeSim = proximity(Math.log(t1 + 0.001), Math.log(t2 + 0.001), 3);
+        // Levels are 0-1
+        const levelSim = proximity(ea[k][1], eb[k][1], 1);
+        sum += (timeSim + levelSim) / 2;
+      }
+      return sum / 4;
+    };
+
+    // Helper: LFO similarity (0-1)
+    const lfoSimilarity = (la, lb) => {
+      if (!la && !lb) return 1;
+      if (!la || !lb) return 0;
+      let sum = 0;
+      sum += la.type === lb.type ? 1 : 0.25;
+      sum += proximity(Math.log(la.frequency + 0.1), Math.log(lb.frequency + 0.1), 4);
+      sum += proximity(la.depth, lb.depth, Math.max(la.depth, lb.depth, 1));
+      return sum / 3;
+    };
+
+    // Oscillator count similarity (weight: 10)
+    const maxOscs = Math.max(a.oscs.length, b.oscs.length);
+    const minOscs = Math.min(a.oscs.length, b.oscs.length);
+    const oscCountSim = minOscs / maxOscs;
+    matchScore += oscCountSim * 10;
+    totalWeight += 10;
+
+    // Compare matched oscillators
+    for (let i = 0; i < minOscs; i++) {
       const oa = a.oscs[i], ob = b.oscs[i];
-      // Waveform match
-      if (oa.waveform === ob.waveform) score += 3;
-      // Octave proximity
-      score -= Math.abs(oa.oct - ob.oct) * 2;
-      // Detune proximity
-      score -= Math.abs(oa.detune - ob.detune) * 0.5;
-      // Filter type match
-      if (oa.filterType === ob.filterType) score += 2;
-      // Filter Q proximity
-      score -= Math.abs(oa.filterQ - ob.filterQ) / 10;
-      // ADSR envelope similarity
-      const envScore = (ea, eb) => {
-        let s = 0;
-        for (const k of ["A", "D", "S", "R"]) {
-          s -= Math.abs(ea[k][0] - eb[k][0]) * 2; // time
-          s -= Math.abs(ea[k][1] - eb[k][1]) * 2; // level
-        }
-        return s;
-      };
-      score += envScore(oa.adsrGain, ob.adsrGain);
-      score += envScore(oa.adsrFilter, ob.adsrFilter);
-      score += envScore(oa.adsrFilterQ, ob.adsrFilterQ);
-      // Modulation presence match
-      if (!!oa.gLFO === !!ob.gLFO) score += 1;
-      if (!!oa.fLFO === !!ob.fLFO) score += 1;
-      if (!!oa.pLFO === !!ob.pLFO) score += 1;
-      if (!!oa.FM === !!ob.FM) score += 1;
-      if (!!oa.pENV === !!ob.pENV) score += 1;
-      // Effects presence match
-      if (!!oa.fx?.del === !!ob.fx?.del) score += 1;
-      if (!!oa.fx?.verb === !!ob.fx?.verb) score += 1;
-      // Effects parameter proximity when both present
-      if (oa.fx?.del && ob.fx?.del) {
-        score -= Math.abs(oa.fx.del.time - ob.fx.del.time) * 2;
-        score -= Math.abs(oa.fx.del.feedback - ob.fx.del.feedback) * 2;
-      }
-      if (oa.fx?.verb && ob.fx?.verb) {
-        score -= Math.abs(oa.fx.verb.duration - ob.fx.verb.duration) * 0.5;
-        score -= Math.abs(oa.fx.verb.decay - ob.fx.verb.decay) * 2;
-      }
+      const oscWeight = 90 / maxOscs; // Distribute 90 points across oscillators
+
+      // Waveform (weight: 15% of osc)
+      const wfMatch = oa.waveform === ob.waveform ? 1 : 0;
+      matchScore += wfMatch * oscWeight * 0.15;
+      totalWeight += oscWeight * 0.15;
+
+      // Octave (weight: 8% of osc) - range is -3 to 3
+      const octSim = proximity(oa.oct, ob.oct, 6);
+      matchScore += octSim * oscWeight * 0.08;
+      totalWeight += oscWeight * 0.08;
+
+      // Detune (weight: 5% of osc) - typically 0 or small values
+      const detSim = proximity(oa.detune || 0, ob.detune || 0, 100);
+      matchScore += detSim * oscWeight * 0.05;
+      totalWeight += oscWeight * 0.05;
+
+      // Filter type (weight: 8% of osc)
+      const ftMatch = oa.filterType === ob.filterType ? 1 : 0;
+      matchScore += ftMatch * oscWeight * 0.08;
+      totalWeight += oscWeight * 0.08;
+
+      // Filter Q (weight: 5% of osc) - range 0-30
+      const fqSim = proximity(oa.filterQ || 0, ob.filterQ || 0, 30);
+      matchScore += fqSim * oscWeight * 0.05;
+      totalWeight += oscWeight * 0.05;
+
+      // Gain envelope (weight: 15% of osc)
+      const gainEnvSim = envSimilarity(oa.adsrGain, ob.adsrGain);
+      matchScore += gainEnvSim * oscWeight * 0.15;
+      totalWeight += oscWeight * 0.15;
+
+      // Filter envelope (weight: 10% of osc)
+      const filterEnvSim = envSimilarity(oa.adsrFilter, ob.adsrFilter);
+      matchScore += filterEnvSim * oscWeight * 0.10;
+      totalWeight += oscWeight * 0.10;
+
+      // Filter Q envelope (weight: 5% of osc)
+      const filterQEnvSim = envSimilarity(oa.adsrFilterQ, ob.adsrFilterQ);
+      matchScore += filterQEnvSim * oscWeight * 0.05;
+      totalWeight += oscWeight * 0.05;
+
+      // Pitch envelope (weight: 7% of osc)
+      const pEnvSim = envSimilarity(oa.pENV || null, ob.pENV || null);
+      matchScore += pEnvSim * oscWeight * 0.07;
+      totalWeight += oscWeight * 0.07;
+
+      // LFOs (weight: 4% each = 12% of osc)
+      matchScore += lfoSimilarity(oa.gLFO || null, ob.gLFO || null) * oscWeight * 0.04;
+      matchScore += lfoSimilarity(oa.fLFO || null, ob.fLFO || null) * oscWeight * 0.04;
+      matchScore += lfoSimilarity(oa.pLFO || null, ob.pLFO || null) * oscWeight * 0.04;
+      totalWeight += oscWeight * 0.12;
+
+      // FM (weight: 5% of osc)
+      const fmSim = lfoSimilarity(oa.FM || null, ob.FM || null);
+      matchScore += fmSim * oscWeight * 0.05;
+      totalWeight += oscWeight * 0.05;
+
+      // Effects (weight: 5% of osc)
+      const delA = oa.fx?.del, delB = ob.fx?.del;
+      const verbA = oa.fx?.verb, verbB = ob.fx?.verb;
+      let fxSim = 0, fxCount = 0;
+      // Delay
+      if (!delA && !delB) { fxSim += 1; fxCount++; }
+      else if (delA && delB) {
+        fxSim += (proximity(delA.time, delB.time, 0.5) + proximity(delA.feedback, delB.feedback, 0.8)) / 2;
+        fxCount++;
+      } else { fxCount++; }
+      // Reverb
+      if (!verbA && !verbB) { fxSim += 1; fxCount++; }
+      else if (verbA && verbB) {
+        fxSim += (proximity(verbA.duration, verbB.duration, 3) + proximity(verbA.decay, verbB.decay, 0.5)) / 2;
+        fxCount++;
+      } else { fxCount++; }
+      matchScore += (fxCount > 0 ? fxSim / fxCount : 0) * oscWeight * 0.05;
+      totalWeight += oscWeight * 0.05;
     }
-    return score;
+
+    // Return percentage (0-100)
+    return totalWeight > 0 ? (matchScore / totalWeight) * 100 : 0;
   },
 
   handleFindSimilar(retry) {
@@ -1425,7 +1643,7 @@ const ZynDemo = {
     const typeIdx = Z.instrumentTypes.indexOf(target.type);
     const searchTypeDigit = typeIdx >= 0 ? typeIdx : Math.abs(this.randInstrumentSeed) % 10;
     let bestSeed = null;
-    let bestScore = -Infinity;
+    let bestScore = -1;
     let tested = 0;
     const duration = 10000;
     const startTime = Date.now();
@@ -1466,7 +1684,7 @@ const ZynDemo = {
       }
       // Update button with progress
       const remaining = Math.ceil((duration - elapsed) / 1000);
-      btn.textContent = `\u{1F50D} Searching... ${remaining}s (${tested})`;
+      btn.textContent = `\u{1F50D} ${remaining}s${bestScore > 0 ? " — " + bestScore.toFixed(1) + "%" : ""}`;
     };
 
     tick();
@@ -1998,6 +2216,31 @@ const ZynDemo = {
     });
   },
 
+  setupFocusSentinels() {
+    const tabOrder = ["about", "presets", "instrument", "recording", "midi", "code", "design"];
+    document.querySelectorAll(".tab-content").forEach(panel => {
+      const sentinel = document.createElement("div");
+      sentinel.className = "focus-sentinel";
+      sentinel.tabIndex = 0;
+      sentinel.setAttribute("aria-hidden", "true");
+      sentinel.addEventListener("focus", () => {
+        const panelId = panel.id.replace("tab-", "");
+        const idx = tabOrder.indexOf(panelId);
+        const nextId = tabOrder[(idx + 1) % tabOrder.length];
+        // Try widescreen side panel tab first
+        const sideTab = document.querySelector(`.side-panel-tab[data-side-panel-id="tab-${nextId}"]`);
+        if (sideTab) {
+          sideTab.focus();
+          return;
+        }
+        // Fall back to narrow tab button
+        const btn = document.querySelector(`.tab-btn[data-tab="${nextId}"]`);
+        if (btn) btn.focus();
+      });
+      panel.appendChild(sentinel);
+    });
+  },
+
   setupPresetKeyboardNavigation() {
     const container = document.getElementById("presetAccordion");
     if (!container) return;
@@ -2026,7 +2269,7 @@ const ZynDemo = {
   updateWidescreenSidePanels(isWide) {
     const sideContainer = document.querySelector(".side-panels");
     if (!sideContainer) return;
-    const sidePanelIds = ["tab-about", "tab-presets", "tab-recording", "tab-midi", "tab-code"];
+    const sidePanelIds = ["tab-about", "tab-presets", "tab-recording", "tab-midi", "tab-code", "tab-design"];
 
     if (isWide && !sideContainer.querySelector(".side-panel-tabs")) {
       // Entering widescreen — build tab bar + content area
@@ -2075,6 +2318,12 @@ const ZynDemo = {
           tab.tabIndex = 0;
           body.style.display = "block";
           body.tabIndex = 0;
+          this.isDesignActive = (id === "tab-design");
+          if (id === "tab-design") {
+            this.redrawDesignCanvases();
+            this.useDesignedInstrument = true;
+            this.updateInstrumentToggle();
+          }
           if (id === "tab-recording") this.updateRecordingTabState();
         });
       });
@@ -2133,6 +2382,12 @@ const ZynDemo = {
         content.tabIndex = isActive ? 0 : -1;
       });
 
+      this.isDesignActive = (tabId === "design");
+      if (tabId === "design") {
+        this.redrawDesignCanvases();
+        this.useDesignedInstrument = true;
+        this.updateInstrumentToggle();
+      }
       // Update no clips message visibility when switching to recording tab
       if (tabId === "recording") {
         this.updateRecordingTabState();
@@ -2199,7 +2454,15 @@ const ZynDemo = {
       const code = document.getElementById("channelCodeSample").textContent;
       this.copyToClipboard(code, document.getElementById("copyChannelCodeButton"));
     });
+    document.getElementById("copyDesignCodeButton").addEventListener("click", () => {
+      const code = document.getElementById("designCodeSample").textContent;
+      this.copyToClipboard(code, document.getElementById("copyDesignCodeButton"));
+    });
     document.getElementById("stopAllButton").addEventListener("click", this.handleStopAll.bind(this));
+    document.getElementById("instrumentToggleBtn").addEventListener("click", () => {
+      this.useDesignedInstrument = !this.useDesignedInstrument;
+      this.updateInstrumentToggle();
+    });
     document.getElementById("recordButton").addEventListener("click", this.toggleRecording.bind(this));
     document.getElementById("mainVolume").addEventListener("input", (e) => {
       const vol = parseInt(e.target.value) / 100;
@@ -2379,6 +2642,15 @@ const ZynDemo = {
     inst.oscs.forEach((osc, i) => {
       const card = document.createElement("div");
       card.className = "osc-card";
+      card.tabIndex = 0;
+      card.setAttribute("role", "region");
+
+      // Build aria-label summary
+      const descParts = [`Oscillator ${i + 1}: ${osc.waveform}`];
+      descParts.push(`octave ${osc.oct > 0 ? "+" : ""}${osc.oct}`);
+      descParts.push(`detune ${osc.detune || 0}`);
+      if (osc.filterType) descParts.push(`${osc.filterType} filter Q:${osc.filterQ !== undefined ? osc.filterQ.toFixed(1) : "?"}`);
+      card.setAttribute("aria-label", descParts.join(", "));
 
       // Header
       const header = document.createElement("div");
@@ -2394,18 +2666,15 @@ const ZynDemo = {
       wfBadge.textContent = osc.waveform;
       header.appendChild(wfBadge);
 
-      if (osc.oct !== 0) {
-        const octBadge = document.createElement("span");
-        octBadge.className = "osc-badge";
-        octBadge.textContent = `oct ${osc.oct > 0 ? "+" : ""}${osc.oct}`;
-        header.appendChild(octBadge);
-      }
-      if (osc.detune) {
-        const detBadge = document.createElement("span");
-        detBadge.className = "osc-badge";
-        detBadge.textContent = `detune ${osc.detune}c`;
-        header.appendChild(detBadge);
-      }
+      const octBadge = document.createElement("span");
+      octBadge.className = "osc-badge";
+      octBadge.textContent = `oct ${osc.oct > 0 ? "+" : ""}${osc.oct}`;
+      header.appendChild(octBadge);
+
+      const detBadge = document.createElement("span");
+      detBadge.className = "osc-badge";
+      detBadge.textContent = `detune ${osc.detune || 0}`;
+      header.appendChild(detBadge);
       if (osc.filterType) {
         const fBadge = document.createElement("span");
         fBadge.className = "osc-badge filter";
@@ -2455,6 +2724,8 @@ const ZynDemo = {
       if (mods.length > 0) {
         const modRow = document.createElement("div");
         modRow.className = "mod-badges";
+        modRow.tabIndex = 0;
+        modRow.setAttribute("aria-label", "Modulation: " + mods.join(", "));
         mods.forEach(m => {
           const badge = document.createElement("span");
           badge.className = "osc-badge mod";
@@ -2464,39 +2735,48 @@ const ZynDemo = {
         card.appendChild(modRow);
       }
 
+      // Per-oscillator effects
+      const fx = osc.fx;
+      if (fx && (fx.del || fx.verb)) {
+        const fxRow = document.createElement("div");
+        fxRow.className = "mod-badges";
+        fxRow.tabIndex = 0;
+        const fxParts = [];
+        if (fx.del) {
+          const delBadge = document.createElement("span");
+          delBadge.className = "osc-badge fx";
+          delBadge.textContent = `Delay ${(fx.del.time * 1000).toFixed(0)}ms fb:${(fx.del.feedback * 100).toFixed(0)}%`;
+          fxRow.appendChild(delBadge);
+          fxParts.push(`Delay ${(fx.del.time * 1000).toFixed(0)}ms feedback ${(fx.del.feedback * 100).toFixed(0)}%`);
+        }
+        if (fx.verb) {
+          const verbBadge = document.createElement("span");
+          verbBadge.className = "osc-badge fx";
+          verbBadge.textContent = `Reverb ${fx.verb.duration.toFixed(1)}s decay:${(fx.verb.decay * 100).toFixed(0)}%`;
+          fxRow.appendChild(verbBadge);
+          fxParts.push(`Reverb ${fx.verb.duration.toFixed(1)}s decay ${(fx.verb.decay * 100).toFixed(0)}%`);
+        }
+        fxRow.setAttribute("aria-label", "Effects: " + fxParts.join(", "));
+        card.appendChild(fxRow);
+      }
+
       container.appendChild(card);
     });
-
-    // Effects chain (shared across all oscs)
-    const fx = inst.oscs[0] && inst.oscs[0].fx;
-    if (fx && (fx.del || fx.verb)) {
-      const fxRow = document.createElement("div");
-      fxRow.className = "fx-chain";
-
-      const fxLabel = document.createElement("span");
-      fxLabel.className = "fx-chain-label";
-      fxLabel.textContent = "Effects:";
-      fxRow.appendChild(fxLabel);
-
-      if (fx.del) {
-        const delBadge = document.createElement("span");
-        delBadge.className = "osc-badge fx";
-        delBadge.textContent = `Delay ${(fx.del.time * 1000).toFixed(0)}ms fb:${(fx.del.feedback * 100).toFixed(0)}%`;
-        fxRow.appendChild(delBadge);
-      }
-      if (fx.verb) {
-        const verbBadge = document.createElement("span");
-        verbBadge.className = "osc-badge fx";
-        verbBadge.textContent = `Reverb ${fx.verb.duration.toFixed(1)}s decay:${(fx.verb.decay * 100).toFixed(0)}%`;
-        fxRow.appendChild(verbBadge);
-      }
-      container.appendChild(fxRow);
-    }
   },
 
   createEnvBlock(label, adsr, color) {
     const block = document.createElement("div");
     block.className = "env-block";
+    block.tabIndex = 0;
+
+    const fmtTime = (t) => t >= 1 ? t.toFixed(1) + "s" : Math.round(t * 1000) + "ms";
+    const fmtLevel = (l) => Math.round(l * 100) + "%";
+    block.setAttribute("aria-label",
+      `${label} envelope: attack ${fmtTime(adsr.A[0])} ${fmtLevel(adsr.A[1])}, ` +
+      `decay ${fmtTime(adsr.D[0])} ${fmtLevel(adsr.D[1])}, ` +
+      `sustain ${fmtTime(adsr.S[0])} ${fmtLevel(adsr.S[1])}, ` +
+      `release ${fmtTime(adsr.R[0])} ${fmtLevel(adsr.R[1])}`
+    );
 
     const lbl = document.createElement("div");
     lbl.className = "env-label";
@@ -2505,6 +2785,8 @@ const ZynDemo = {
 
     const canvas = document.createElement("canvas");
     canvas.className = "adsr-canvas";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `${label} ADSR envelope graph`);
     block.appendChild(canvas);
 
     // Draw after DOM insertion via rAF
@@ -2611,6 +2893,1240 @@ const ZynDemo = {
         lastLabelEnd = x + labelW / 2;
       }
     }
+  },
+
+  // =========================================
+  //  INSTRUMENT DESIGN TAB
+  // =========================================
+
+  createDefaultOsc() {
+    return {
+      enabled: true,
+      waveform: "sine",
+      oct: 0,
+      detune: 0,
+      filterType: "lowpass",
+      filterQ: 10,
+      adsrGain: { A: [0.01, 1], D: [0.1, 0.8], S: [0.5, 0.6], R: [0.2, 0] },
+      adsrFilter: { A: [0.01, 1], D: [0.1, 0.5], S: [0.3, 0.3], R: [0.2, 0] },
+      adsrFilterQ: { A: [0.01, 1], D: [0.1, 0.5], S: [0.3, 0.3], R: [0.2, 0] },
+      gLFO: false,
+      fLFO: false,
+      pLFO: false,
+      FM: false,
+      pENV: false,
+      dist: null,
+      fx: { del: null, verb: null }
+    };
+  },
+
+  loadDesignSaves() {
+    try {
+      const stored = localStorage.getItem("zynDesigns");
+      if (stored) this.designSaves = JSON.parse(stored) || [];
+    } catch (e) {
+      this.designSaves = [];
+    }
+  },
+
+  saveDesignSaves() {
+    localStorage.setItem("zynDesigns", JSON.stringify(this.designSaves));
+  },
+
+  initDesignTab() {
+    try {
+      const stored = localStorage.getItem("zynCurrentDesign");
+      if (stored) {
+        this.designedInstrument = JSON.parse(stored);
+      }
+    } catch (e) { /* ignore */ }
+    if (!this.designedInstrument || !this.designedInstrument.oscs || !this.designedInstrument.oscs.length) {
+      this.designedInstrument = { type: "custom", volume: 1.0, octave: 0, oscs: [this.createDefaultOsc()] };
+    }
+    this.renderDesignUI();
+  },
+
+  renderDesignUI() {
+    const container = document.getElementById("designContent");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // Global settings section (volume and octave)
+    const globalSection = document.createElement("div");
+    globalSection.className = "divider";
+
+    const globalLabel = document.createElement("label");
+    globalLabel.tabIndex = 0;
+    globalLabel.style.cssText = "margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);";
+    globalLabel.textContent = "Global Settings";
+    globalSection.appendChild(globalLabel);
+
+    const globalRow = document.createElement("div");
+    globalRow.className = "design-row";
+
+    // Volume control
+    if (this.designedInstrument.volume === undefined) this.designedInstrument.volume = 1.0;
+    const volCtrl = this.buildDesignNumber("Volume", this.designedInstrument.volume, 0.1, 5, 0.1,
+      (v) => { this.designedInstrument.volume = v; this.updateDesignedInstrument(); }
+    );
+    volCtrl.querySelector("input").classList.add("design-input-flat");
+    globalRow.appendChild(volCtrl);
+
+    // Octave offset control
+    if (this.designedInstrument.octave === undefined) this.designedInstrument.octave = 0;
+    const octOptions = [];
+    for (let o = -3; o <= 3; o++) octOptions.push({ value: String(o), label: o > 0 ? `+${o}` : String(o) });
+    globalRow.appendChild(this.buildDesignSelectOptions("Octave", String(this.designedInstrument.octave), octOptions,
+      (v) => { this.designedInstrument.octave = parseInt(v); this.updateDesignedInstrument(); }
+    ));
+
+    globalSection.appendChild(globalRow);
+    container.appendChild(globalSection);
+
+    // Oscillators section
+    const oscSection = document.createElement("div");
+    oscSection.className = "divider";
+
+    const oscLabel = document.createElement("label");
+    oscLabel.tabIndex = 0;
+    oscLabel.style.cssText = "margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);";
+    oscLabel.textContent = "Oscillators";
+    oscSection.appendChild(oscLabel);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3);";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "btn-secondary btn-sm";
+    addBtn.textContent = "\u2795 Add Oscillator";
+    addBtn.title = "Add a new oscillator (max 5)";
+    if (this.designedInstrument.oscs.length >= 5) {
+      addBtn.setAttribute("aria-disabled", "true");
+      addBtn.style.opacity = "0.5";
+    }
+    addBtn.addEventListener("click", () => {
+      if (this.designedInstrument.oscs.length >= 5) return;
+      this.designedInstrument.oscs.push(this.createDefaultOsc());
+      this.renderDesignUI();
+    });
+    btnRow.appendChild(addBtn);
+
+    const loadGenBtn = document.createElement("button");
+    loadGenBtn.className = "btn-info btn-sm";
+    loadGenBtn.textContent = "\u2B07 Load from Generator";
+    loadGenBtn.title = "Load the current generated instrument into the designer";
+    loadGenBtn.addEventListener("click", () => {
+      if (!this.randInstrument || !this.randInstrument.oscs) return;
+      this.designedInstrument = JSON.parse(JSON.stringify(this.randInstrument));
+      this.renderDesignUI();
+    });
+    btnRow.appendChild(loadGenBtn);
+
+    oscSection.appendChild(btnRow);
+
+    const oscContainer = document.createElement("div");
+    oscContainer.id = "designOscillators";
+    this.designedInstrument.oscs.forEach((osc, i) => {
+      oscContainer.appendChild(this.buildOscEditor(osc, i));
+    });
+    oscSection.appendChild(oscContainer);
+    container.appendChild(oscSection);
+
+    // Actions section
+    container.appendChild(this.buildDesignActions());
+
+    // JSON view
+    container.appendChild(this.buildDesignJsonView());
+
+    this.writeDesignJson();
+  },
+
+  buildOscEditor(osc, index) {
+    // Default enabled to true for backwards compatibility
+    if (osc.enabled === undefined) osc.enabled = true;
+
+    const card = document.createElement("div");
+    card.className = "design-osc" + (osc.enabled ? "" : " osc-disabled");
+    card.tabIndex = 0;
+    card.setAttribute("role", "region");
+    card.setAttribute("aria-label", `Oscillator ${index + 1}: ${osc.waveform}`);
+
+    // Header — matches instrument visualizer osc-card style
+    const header = document.createElement("div");
+    header.className = "design-osc-header";
+    header.tabIndex = 0;
+    header.setAttribute("role", "button");
+    header.setAttribute("aria-expanded", "true");
+
+    const headerLeft = document.createElement("div");
+    headerLeft.className = "design-osc-header-left";
+
+    const chevron = document.createElement("span");
+    chevron.className = "design-osc-chevron";
+    chevron.textContent = "\u25BC";
+    headerLeft.appendChild(chevron);
+
+    const oscLabel = document.createElement("span");
+    oscLabel.className = "osc-label";
+    oscLabel.textContent = `Osc ${index + 1}`;
+    headerLeft.appendChild(oscLabel);
+
+    const wfBadge = document.createElement("span");
+    wfBadge.className = "osc-badge waveform";
+    wfBadge.textContent = osc.waveform;
+    headerLeft.appendChild(wfBadge);
+
+    const octBadge = document.createElement("span");
+    octBadge.className = "osc-badge";
+    octBadge.textContent = `oct ${osc.oct >= 0 ? "+" : ""}${osc.oct}`;
+    if (osc.oct === 0) octBadge.style.display = "none";
+    headerLeft.appendChild(octBadge);
+
+    const filterBadge = document.createElement("span");
+    filterBadge.className = "osc-badge filter";
+    filterBadge.textContent = osc.filterType ? `${osc.filterType} Q:${(osc.filterQ || 10).toFixed(1)}` : "";
+    if (!osc.filterType) filterBadge.style.display = "none";
+    headerLeft.appendChild(filterBadge);
+
+    header.appendChild(headerLeft);
+
+    // Header right: enable toggle and remove button
+    const headerRight = document.createElement("div");
+    headerRight.style.cssText = "display: flex; align-items: center; gap: var(--space-2);";
+
+    // Enable/disable toggle
+    const enableLabel = document.createElement("label");
+    enableLabel.className = "design-osc-enable";
+    enableLabel.title = osc.enabled ? "Oscillator enabled — click to disable" : "Oscillator disabled — click to enable";
+    const enableCb = document.createElement("input");
+    enableCb.type = "checkbox";
+    enableCb.checked = osc.enabled;
+    enableCb.addEventListener("mousedown", (e) => e.preventDefault()); // Prevent focus stealing
+    enableCb.addEventListener("change", (e) => {
+      e.stopPropagation();
+      osc.enabled = enableCb.checked;
+      card.classList.toggle("osc-disabled", !osc.enabled);
+      body.classList.toggle("disabled", !osc.enabled);
+      enableLabel.title = osc.enabled ? "Oscillator enabled — click to disable" : "Oscillator disabled — click to enable";
+      this.updateDesignedInstrument();
+    });
+    enableLabel.addEventListener("click", (e) => e.stopPropagation());
+    enableLabel.appendChild(enableCb);
+    enableLabel.appendChild(document.createTextNode(" On"));
+    headerRight.appendChild(enableLabel);
+
+    if (this.designedInstrument.oscs.length > 1) {
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "btn-danger btn-sm";
+      removeBtn.textContent = "\uD83D\uDDD1";
+      removeBtn.title = `Remove oscillator ${index + 1}`;
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.designedInstrument.oscs.splice(index, 1);
+        this.renderDesignUI();
+      });
+      headerRight.appendChild(removeBtn);
+    }
+
+    header.appendChild(headerRight);
+
+    const body = document.createElement("div");
+    body.className = "design-osc-body" + (osc.enabled ? "" : " disabled");
+
+    // Helper to sync badges from current osc state
+    const syncBadges = () => {
+      wfBadge.textContent = osc.waveform;
+      octBadge.textContent = `oct ${osc.oct >= 0 ? "+" : ""}${osc.oct}`;
+      octBadge.style.display = osc.oct === 0 ? "none" : "";
+      filterBadge.textContent = osc.filterType ? `${osc.filterType} Q:${(osc.filterQ || 10).toFixed(1)}` : "";
+      filterBadge.style.display = osc.filterType ? "" : "none";
+      card.setAttribute("aria-label", `Oscillator ${index + 1}: ${osc.waveform}`);
+    };
+
+    header.addEventListener("click", () => {
+      const isExpanded = body.style.display !== "none";
+      body.style.display = isExpanded ? "none" : "block";
+      header.setAttribute("aria-expanded", !isExpanded);
+      chevron.textContent = isExpanded ? "\u25B6" : "\u25BC";
+    });
+    header.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); header.click(); }
+    });
+
+    card.appendChild(header);
+
+    // Basic controls row
+    const basicRow = document.createElement("div");
+    basicRow.className = "design-row";
+
+    // Waveform
+    basicRow.appendChild(this.buildDesignSelect("Waveform", osc.waveform,
+      ["sine", "square", "sawtooth", "triangle"],
+      (v) => { osc.waveform = v; syncBadges(); this.updateDesignedInstrument(); }
+    ));
+
+    // Octave
+    const octOptions = [];
+    for (let o = -3; o <= 3; o++) octOptions.push({ value: String(o), label: o > 0 ? `+${o}` : String(o) });
+    basicRow.appendChild(this.buildDesignSelectOptions("Octave", String(osc.oct), octOptions,
+      (v) => { osc.oct = parseInt(v); syncBadges(); this.updateDesignedInstrument(); }
+    ));
+
+    // Detune
+    const detuneCtrl = this.buildDesignNumber("Detune", osc.detune, -100, 100, 1,
+      (v) => { osc.detune = v; this.updateDesignedInstrument(); }
+    );
+    detuneCtrl.querySelector("input").classList.add("design-input-flat");
+    basicRow.appendChild(detuneCtrl);
+
+    body.appendChild(basicRow);
+
+    // ADSR Envelopes — side by side like instrument visualizer
+    if (!osc.adsrFilter || osc.adsrFilter === false) osc.adsrFilter = { A: [0.01, 1], D: [0.1, 0.5], S: [0.3, 0.3], R: [0.2, 0] };
+    if (!osc.adsrFilterQ || osc.adsrFilterQ === false) osc.adsrFilterQ = { A: [0.01, 1], D: [0.1, 0.5], S: [0.3, 0.3], R: [0.2, 0] };
+
+    const envRow = document.createElement("div");
+    envRow.className = "design-env-row-container";
+    envRow.appendChild(this.buildDesignEnvelope("Gain", osc.adsrGain, "rgba(0, 217, 255, 0.9)",
+      () => this.updateDesignedInstrument()
+    ));
+
+    // Filter Freq envelope tile — with filter type select underneath
+    const filterFreqTile = this.buildDesignEnvelope("Filter Freq", osc.adsrFilter, "rgba(255, 171, 0, 0.9)",
+      () => this.updateDesignedInstrument()
+    );
+    const filterTypes = ["none", "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", "allpass"];
+    const filterSelect = this.buildDesignSelect("Filter", osc.filterType || "none", filterTypes,
+      (v) => {
+        osc.filterType = v === "none" ? null : v;
+        qControl.style.display = v === "none" ? "none" : "flex";
+        syncBadges();
+        this.updateDesignedInstrument();
+      }
+    );
+    filterSelect.style.marginTop = "var(--space-2)";
+    filterFreqTile.appendChild(filterSelect);
+    envRow.appendChild(filterFreqTile);
+
+    // Filter Q envelope tile — with Q input underneath
+    const filterQTile = this.buildDesignEnvelope("Filter Q", osc.adsrFilterQ, "rgba(255, 171, 0, 0.6)",
+      () => this.updateDesignedInstrument()
+    );
+    const qControl = this.buildDesignNumber("Q", osc.filterQ || 10, 0, 30, 0.1,
+      (v) => { osc.filterQ = v; syncBadges(); this.updateDesignedInstrument(); }
+    );
+    qControl.style.marginTop = "var(--space-2)";
+    if (!osc.filterType) qControl.style.display = "none";
+    filterQTile.appendChild(qControl);
+    envRow.appendChild(filterQTile);
+
+    // Pitch envelope tile (optional, also in the envelope row)
+    const pEnvEnabled = osc.pENV !== false && osc.pENV !== null;
+    const pEnvData = (osc.pENV && typeof osc.pENV === "object") ? osc.pENV : { amount: 2, A: [0.01, 1], D: [0.1, 0.5], S: [0.3, 0.3], R: [0.2, 0] };
+    const pEnvTile = this.buildDesignEnvelope("", pEnvData, "rgba(233, 69, 96, 0.9)",
+      () => this.updateDesignedInstrument()
+    );
+    // Build a wrapper tile with toggle header
+    const pEnvToggleTile = document.createElement("div");
+    pEnvToggleTile.className = "design-env-tile";
+    const pEnvHeader = document.createElement("label");
+    pEnvHeader.className = "design-tile-header";
+    pEnvHeader.style.marginBottom = "0";
+    const pEnvCb = document.createElement("input");
+    pEnvCb.type = "checkbox";
+    pEnvCb.checked = pEnvEnabled;
+    const pEnvSpan = document.createElement("span");
+    pEnvSpan.textContent = "Pitch Env";
+    pEnvHeader.appendChild(pEnvCb);
+    pEnvHeader.appendChild(pEnvSpan);
+    pEnvToggleTile.appendChild(pEnvHeader);
+    const pEnvContent = document.createElement("div");
+    pEnvContent.className = "design-tile-content" + (pEnvEnabled ? "" : " disabled");
+    // Move children from pEnvTile into the content wrapper
+    while (pEnvTile.firstChild) pEnvContent.appendChild(pEnvTile.firstChild);
+    // Add amount control after the ADSR grid
+    const pAmountCtrl = this.buildDesignNumber("Amt", pEnvData.amount || 2, 0.1, 12, 0.1, (v) => { pEnvData.amount = v; this.updateDesignedInstrument(); });
+    pAmountCtrl.style.marginTop = "var(--space-2)";
+    pEnvContent.appendChild(pAmountCtrl);
+    pEnvToggleTile.appendChild(pEnvContent);
+    pEnvCb.addEventListener("change", () => {
+      if (pEnvCb.checked) {
+        osc.pENV = pEnvData;
+        pEnvContent.classList.remove("disabled");
+      } else {
+        osc.pENV = false;
+        pEnvContent.classList.add("disabled");
+      }
+      this.updateDesignedInstrument();
+    });
+    if (pEnvEnabled) osc.pENV = pEnvData;
+    envRow.appendChild(pEnvToggleTile);
+    body.appendChild(envRow);
+
+    // LFOs — side by side tiles
+    const lfoRow = document.createElement("div");
+    lfoRow.className = "design-tiles-row";
+    lfoRow.appendChild(this.buildDesignLFOSection("Gain LFO", osc.gLFO,
+      (lfo) => { osc.gLFO = lfo; this.updateDesignedInstrument(); }
+    ));
+    lfoRow.appendChild(this.buildDesignLFOSection("Filter LFO", osc.fLFO,
+      (lfo) => { osc.fLFO = lfo; this.updateDesignedInstrument(); }
+    ));
+    lfoRow.appendChild(this.buildDesignLFOSection("Pitch LFO", osc.pLFO,
+      (lfo) => { osc.pLFO = lfo; this.updateDesignedInstrument(); }
+    ));
+    body.appendChild(lfoRow);
+
+    // FM + Distortion — side by side tiles
+    const modRow = document.createElement("div");
+    modRow.className = "design-tiles-row";
+
+    // FM tile
+    const fmData = (osc.FM && typeof osc.FM === "object") ? osc.FM : { type: "sine", frequency: 3, depth: 100 };
+    modRow.appendChild(this.buildDesignToggleSection("FM Synthesis", osc.FM !== false && osc.FM !== null,
+      () => {
+        const frag = document.createDocumentFragment();
+        const row = document.createElement("div");
+        row.className = "design-row";
+        row.appendChild(this.buildDesignSelect("Type", fmData.type, ["sine", "square", "sawtooth", "triangle"], (v) => { fmData.type = v; this.updateDesignedInstrument(); }));
+        row.appendChild(this.buildDesignNumber("Freq", fmData.frequency, 0.1, 100, 0.1, (v) => { fmData.frequency = v; this.updateDesignedInstrument(); }));
+        row.appendChild(this.buildDesignNumber("Depth", fmData.depth, 1, 500, 1, (v) => { fmData.depth = v; this.updateDesignedInstrument(); }));
+        frag.appendChild(row);
+        return frag;
+      },
+      (enabled) => {
+        if (enabled) osc.FM = fmData;
+        else osc.FM = false;
+        this.updateDesignedInstrument();
+      }
+    ));
+
+    // Distortion tile
+    const distData = (osc.dist && typeof osc.dist === "object") ? osc.dist : { oversample: "2x" };
+    modRow.appendChild(this.buildDesignToggleSection("Distortion", !!osc.dist,
+      () => {
+        const frag = document.createDocumentFragment();
+        const row = document.createElement("div");
+        row.className = "design-row";
+        row.appendChild(this.buildDesignSelectOptions("Oversample", distData.oversample || "none",
+          [{ value: "none", label: "None" }, { value: "2x", label: "2x" }, { value: "4x", label: "4x" }],
+          (v) => { distData.oversample = v; this.updateDesignedInstrument(); }
+        ));
+        frag.appendChild(row);
+        return frag;
+      },
+      (enabled) => {
+        if (enabled) osc.dist = distData;
+        else osc.dist = null;
+        this.updateDesignedInstrument();
+      }
+    ));
+    body.appendChild(modRow);
+
+    // Per-oscillator effects — side by side tiles
+    const fxRow = document.createElement("div");
+    fxRow.className = "design-tiles-row";
+
+    const fx = osc.fx || {};
+    const delData = (fx.del && typeof fx.del === "object") ? fx.del : { time: 0.25, feedback: 0.3 };
+    const verbData = (fx.verb && typeof fx.verb === "object") ? fx.verb : { duration: 1.5, decay: 0.8 };
+
+    fxRow.appendChild(this.buildDesignToggleSection("Delay", !!fx.del,
+      () => {
+        const frag = document.createDocumentFragment();
+        const row = document.createElement("div");
+        row.className = "design-row";
+        row.appendChild(this.buildDesignNumber("Time", delData.time, 0, 0.5, 0.001,
+          (v) => { delData.time = v; this.updateDesignedInstrument(); }
+        ));
+        row.appendChild(this.buildDesignNumber("Feedback", delData.feedback, 0, 0.8, 0.01,
+          (v) => { delData.feedback = v; this.updateDesignedInstrument(); }
+        ));
+        frag.appendChild(row);
+        return frag;
+      },
+      (enabled) => {
+        if (enabled) osc.fx.del = delData;
+        else osc.fx.del = null;
+        this.updateDesignedInstrument();
+      }
+    ));
+
+    fxRow.appendChild(this.buildDesignToggleSection("Reverb", !!fx.verb,
+      () => {
+        const frag = document.createDocumentFragment();
+        const row = document.createElement("div");
+        row.className = "design-row";
+        row.appendChild(this.buildDesignNumber("Duration", verbData.duration, 0.1, 3.1, 0.1,
+          (v) => { verbData.duration = v; this.updateDesignedInstrument(); }
+        ));
+        row.appendChild(this.buildDesignNumber("Decay", verbData.decay, 0.5, 1.0, 0.01,
+          (v) => { verbData.decay = v; this.updateDesignedInstrument(); }
+        ));
+        frag.appendChild(row);
+        return frag;
+      },
+      (enabled) => {
+        if (enabled) osc.fx.verb = verbData;
+        else osc.fx.verb = null;
+        this.updateDesignedInstrument();
+      }
+    ));
+
+    body.appendChild(fxRow);
+
+    card.appendChild(body);
+    return card;
+  },
+
+  // --- Design UI building helpers ---
+
+  buildDesignSelect(label, value, options, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "design-control";
+    const lbl = document.createElement("label");
+    lbl.className = "design-label";
+    lbl.textContent = label;
+    const sel = document.createElement("select");
+    sel.className = "design-select";
+    sel.title = label;
+    options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt; o.textContent = opt;
+      if (opt === value) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => onChange(sel.value));
+    wrap.appendChild(lbl);
+    wrap.appendChild(sel);
+    return wrap;
+  },
+
+  buildDesignSelectOptions(label, value, options, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "design-control";
+    const lbl = document.createElement("label");
+    lbl.className = "design-label";
+    lbl.textContent = label;
+    const sel = document.createElement("select");
+    sel.className = "design-select";
+    sel.title = label;
+    options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt.value; o.textContent = opt.label;
+      if (opt.value === value) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => onChange(sel.value));
+    wrap.appendChild(lbl);
+    wrap.appendChild(sel);
+    return wrap;
+  },
+
+  buildDesignNumber(label, value, min, max, step, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "design-control";
+    const lbl = document.createElement("label");
+    lbl.className = "design-label";
+    lbl.textContent = label;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.className = "design-input";
+    input.min = min; input.max = max; input.step = step;
+    input.value = value;
+    input.title = label;
+    input.addEventListener("input", () => {
+      const v = parseFloat(input.value);
+      if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
+    });
+    wrap.appendChild(lbl);
+    wrap.appendChild(input);
+    return wrap;
+  },
+
+  buildDesignEnvelope(label, adsr, color, onChange) {
+    const tile = document.createElement("div");
+    tile.className = "design-env-tile";
+
+    if (label) {
+      const heading = document.createElement("div");
+      heading.className = "design-env-label";
+      heading.textContent = label;
+      tile.appendChild(heading);
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "design-env-canvas";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `${label || "Envelope"} ADSR graph`);
+    canvas.title = "Drag points to adjust envelope";
+    tile.appendChild(canvas);
+
+    const grid = document.createElement("div");
+    grid.className = "design-env-grid";
+
+    // Store inputs for syncing from drag
+    const inputs = {};
+
+    const redraw = () => {
+      requestAnimationFrame(() => this.drawADSR(canvas, adsr, color));
+      onChange();
+    };
+
+    // Store draw function on canvas for redrawDesignCanvases()
+    canvas._drawFn = () => this.drawADSR(canvas, adsr, color);
+
+    ["A", "D", "S", "R"].forEach(stage => {
+      const col = document.createElement("div");
+      col.className = "design-env-col";
+
+      const stageLabel = document.createElement("span");
+      stageLabel.className = "design-env-stage";
+      stageLabel.textContent = stage;
+      col.appendChild(stageLabel);
+
+      const timeInput = document.createElement("input");
+      timeInput.type = "number";
+      timeInput.className = "design-input";
+      timeInput.min = 0; timeInput.max = 5; timeInput.step = 0.001;
+      timeInput.value = adsr[stage][0];
+      timeInput.title = `${stage} time (seconds)`;
+      timeInput.addEventListener("input", () => {
+        const v = parseFloat(timeInput.value);
+        if (!isNaN(v)) { adsr[stage][0] = Math.max(0, Math.min(5, v)); redraw(); }
+      });
+      col.appendChild(timeInput);
+
+      const levelInput = document.createElement("input");
+      levelInput.type = "number";
+      levelInput.className = "design-input";
+      levelInput.min = 0; levelInput.max = 1; levelInput.step = 0.01;
+      levelInput.value = adsr[stage][1];
+      levelInput.title = `${stage} level (0-1)`;
+      levelInput.addEventListener("input", () => {
+        const v = parseFloat(levelInput.value);
+        if (!isNaN(v)) { adsr[stage][1] = Math.max(0, Math.min(1, v)); redraw(); }
+      });
+      col.appendChild(levelInput);
+
+      inputs[stage] = { time: timeInput, level: levelInput };
+      grid.appendChild(col);
+    });
+
+    // --- Drag interaction on canvas ---
+    let dragging = null;
+    const stages = ["A", "D", "S", "R"];
+
+    const getCanvasPoints = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const pad = 4;
+      const bottomPad = 14;
+      const drawW = w - pad * 2;
+      const drawH = h - pad - bottomPad;
+      const aTime = adsr.A[0], dTime = adsr.D[0], sTime = adsr.S[0], rTime = adsr.R[0];
+      const totalTime = aTime + dTime + sTime + rTime;
+      if (totalTime === 0) return [];
+      const timeToX = (t) => pad + (t / totalTime) * drawW;
+      const levelToY = (l) => pad + drawH - (l * drawH);
+      return [
+        { x: pad, y: levelToY(0) },
+        { x: timeToX(aTime), y: levelToY(adsr.A[1]) },
+        { x: timeToX(aTime + dTime), y: levelToY(adsr.D[1]) },
+        { x: timeToX(aTime + dTime + sTime), y: levelToY(adsr.S[1]) },
+        { x: timeToX(totalTime), y: levelToY(adsr.R[1]) },
+      ];
+    };
+
+    const getMousePos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    };
+
+    const findClosestPoint = (pos) => {
+      const points = getCanvasPoints();
+      if (points.length === 0) return -1;
+      let closest = -1, minDist = 20;
+      for (let i = 1; i < points.length; i++) {
+        const dx = pos.x - points[i].x;
+        const dy = pos.y - points[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) { minDist = dist; closest = i; }
+      }
+      return closest;
+    };
+
+    const updateFromDrag = (pos) => {
+      if (dragging < 1 || dragging > 4) return;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const pad = 4;
+      const bottomPad = 14;
+      const drawW = w - pad * 2;
+      const drawH = h - pad - bottomPad;
+
+      const level = Math.max(0, Math.min(1, (pad + drawH - pos.y) / drawH));
+      const stage = stages[dragging - 1];
+      adsr[stage][1] = Math.round(level * 100) / 100;
+      inputs[stage].level.value = adsr[stage][1];
+
+      const totalTime = adsr.A[0] + adsr.D[0] + adsr.S[0] + adsr.R[0];
+      const fracX = Math.max(0, Math.min(1, (pos.x - pad) / drawW));
+      const cumTime = fracX * totalTime;
+
+      let preceding = 0;
+      for (let i = 0; i < dragging - 1; i++) preceding += adsr[stages[i]][0];
+      const newTime = Math.max(0.001, cumTime - preceding);
+
+      const oldTime = adsr[stage][0];
+      const nextStageIdx = dragging;
+      if (nextStageIdx < 4) {
+        const nextStage = stages[nextStageIdx];
+        const nextOld = adsr[nextStage][0];
+        const delta = newTime - oldTime;
+        const nextNew = Math.max(0.001, nextOld - delta);
+        adsr[nextStage][0] = Math.round(nextNew * 1000) / 1000;
+        inputs[nextStage].time.value = adsr[nextStage][0];
+      }
+
+      adsr[stage][0] = Math.round(newTime * 1000) / 1000;
+      inputs[stage].time.value = adsr[stage][0];
+      redraw();
+    };
+
+    const onDown = (e) => {
+      const pos = getMousePos(e);
+      const idx = findClosestPoint(pos);
+      if (idx >= 1) { dragging = idx; canvas.style.cursor = "grabbing"; e.preventDefault(); }
+    };
+    const onMove = (e) => {
+      if (dragging !== null) { updateFromDrag(getMousePos(e)); e.preventDefault(); }
+      else { canvas.style.cursor = findClosestPoint(getMousePos(e)) >= 1 ? "grab" : "default"; }
+    };
+    const onUp = () => { if (dragging !== null) { dragging = null; canvas.style.cursor = "default"; } };
+
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseup", onUp);
+    canvas.addEventListener("mouseleave", onUp);
+    canvas.addEventListener("touchstart", onDown, { passive: false });
+    canvas.addEventListener("touchmove", onMove, { passive: false });
+    canvas.addEventListener("touchend", onUp);
+
+    tile.appendChild(grid);
+
+    // Initial draw (deferred to allow layout)
+    requestAnimationFrame(() => this.drawADSR(canvas, adsr, color));
+
+    return tile;
+  },
+
+  buildDesignToggleSection(label, enabled, buildContent, onToggle) {
+    const tile = document.createElement("div");
+    tile.className = "design-tile" + (enabled ? " enabled" : "");
+
+    const header = document.createElement("label");
+    header.className = "design-tile-header";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = enabled;
+    const span = document.createElement("span");
+    span.textContent = label;
+    header.appendChild(cb);
+    header.appendChild(span);
+    tile.appendChild(header);
+
+    const content = document.createElement("div");
+    content.className = "design-tile-content" + (enabled ? "" : " disabled");
+
+    // Always build content (visible but greyed when disabled)
+    const built = buildContent();
+    if (built) content.appendChild(built);
+
+    // Prevent checkbox from stealing focus (allows keyboard to keep playing)
+    cb.addEventListener("mousedown", (e) => e.preventDefault());
+
+    cb.addEventListener("change", () => {
+      if (cb.checked) {
+        content.classList.remove("disabled");
+        tile.classList.add("enabled");
+        onToggle(true);
+      } else {
+        content.classList.add("disabled");
+        tile.classList.remove("enabled");
+        onToggle(false);
+      }
+    });
+
+    tile.appendChild(content);
+    return tile;
+  },
+
+  buildDesignLFOSection(label, lfo, onChange) {
+    const isEnabled = lfo !== false && lfo !== null && lfo !== undefined;
+    const data = (lfo && typeof lfo === "object") ? lfo : { type: "sine", frequency: 5, depth: 0.3 };
+    return this.buildDesignToggleSection(label, isEnabled,
+      () => {
+        const frag = document.createDocumentFragment();
+        const row = document.createElement("div");
+        row.className = "design-row";
+        row.appendChild(this.buildDesignSelect("Type", data.type, ["sine", "square", "sawtooth", "triangle"],
+          (v) => { data.type = v; onChange(data); }
+        ));
+        row.appendChild(this.buildDesignNumber("Freq", data.frequency, 0.1, 100, 0.1,
+          (v) => { data.frequency = v; onChange(data); }
+        ));
+        row.appendChild(this.buildDesignNumber("Depth", data.depth, 0, 1, 0.01,
+          (v) => { data.depth = v; onChange(data); }
+        ));
+        frag.appendChild(row);
+        return frag;
+      },
+      (enabled) => {
+        if (enabled) onChange(data);
+        else onChange(false);
+      }
+    );
+  },
+
+  buildDesignActions() {
+    const section = document.createElement("div");
+    section.className = "divider";
+
+    const label = document.createElement("label");
+    label.tabIndex = 0;
+    label.style.cssText = "margin-bottom: var(--space-2); display: block; font-weight: 500; color: var(--text-primary);";
+    label.textContent = "Actions";
+    section.appendChild(label);
+
+    // Find Seed row
+    const findRow = document.createElement("div");
+    findRow.className = "control-group";
+    findRow.style.marginBottom = "var(--space-3)";
+
+    // Type selector for constraining search
+    const typeSelect = document.createElement("select");
+    typeSelect.id = "findSeedTypeSelect";
+    typeSelect.className = "design-select";
+    typeSelect.title = "Constrain search to a specific instrument type";
+    const anyOption = document.createElement("option");
+    anyOption.value = "any";
+    anyOption.textContent = "Any Type";
+    typeSelect.appendChild(anyOption);
+    this.typeNames.forEach((name, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `${this.typeIcons[i]} ${name}`;
+      typeSelect.appendChild(opt);
+    });
+    findRow.appendChild(typeSelect);
+
+    const findBtn = document.createElement("button");
+    findBtn.id = "findSeedButton";
+    findBtn.className = "btn-info";
+    findBtn.textContent = "\uD83D\uDD0D Find Seed";
+    findBtn.title = "Search for a seed that matches this design";
+    findBtn.addEventListener("click", () => this.handleFindSeed(false));
+    findRow.appendChild(findBtn);
+
+    const improveBtn = document.createElement("button");
+    improveBtn.id = "findImprovedButton";
+    improveBtn.className = "btn-secondary";
+    improveBtn.textContent = "\uD83D\uDD04 Find Improved";
+    improveBtn.title = "Search until a better match is found";
+    improveBtn.style.display = "none";
+    improveBtn.addEventListener("click", () => {
+      if (this.findSeedTimer) {
+        // Cancel active search
+        clearInterval(this.findSeedTimer);
+        this.findSeedTimer = null;
+        improveBtn.textContent = "\uD83D\uDD04 Find Improved";
+        const findBtn = document.getElementById("findSeedButton");
+        if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
+      } else {
+        this.handleFindSeed(true);
+      }
+    });
+    findRow.appendChild(improveBtn);
+
+    const loadGenBtn = document.createElement("button");
+    loadGenBtn.id = "loadSeedInGenerator";
+    loadGenBtn.className = "btn-success";
+    loadGenBtn.textContent = "\u27A1 Load in Generator";
+    loadGenBtn.title = "Load the found seed in the Instrument tab";
+    loadGenBtn.style.display = "none";
+    loadGenBtn.addEventListener("click", () => {
+      const seed = parseInt(loadGenBtn.dataset.seed);
+      if (!isNaN(seed)) {
+        document.getElementById("instrumentSeedInput").value = seed;
+        this.activePresetIndex = null;
+        this.updateInstrumentAndPushState(seed);
+        // Switch to instrument tab
+        const sideTab = document.querySelector('.side-panel-tab[data-side-panel-id="tab-instrument"]');
+        if (sideTab) sideTab.click();
+        else {
+          const btn = document.querySelector('.tab-btn[data-tab="instrument"]');
+          if (btn) btn.click();
+        }
+      }
+    });
+    findRow.appendChild(loadGenBtn);
+    section.appendChild(findRow);
+
+    // Save design row
+    const saveRow = document.createElement("div");
+    saveRow.className = "save-preset-row";
+    saveRow.style.marginBottom = "var(--space-3)";
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.id = "designNameInput";
+    nameInput.placeholder = "Enter design name...";
+    nameInput.title = "Name for the saved design";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "btn-success";
+    saveBtn.textContent = "\uD83D\uDCBE Save Design";
+    saveBtn.title = "Save the current instrument design";
+    saveBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      if (!name) { alert("Please enter a name for the design"); return; }
+      this.designSaves.push({ name, instrument: JSON.parse(JSON.stringify(this.designedInstrument)), timestamp: Date.now() });
+      this.saveDesignSaves();
+      nameInput.value = "";
+      this.renderDesignSaves();
+    });
+
+    saveRow.appendChild(nameInput);
+    saveRow.appendChild(saveBtn);
+    section.appendChild(saveRow);
+
+    // Saved designs container
+    const savesContainer = document.createElement("div");
+    savesContainer.id = "designSavesContainer";
+    section.appendChild(savesContainer);
+
+    // Export/Import
+    const ioRow = document.createElement("div");
+    ioRow.style.cssText = "display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3);";
+
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "btn-secondary";
+    exportBtn.textContent = "\uD83D\uDCE4 Export Designs";
+    exportBtn.title = "Export all designs to a JSON file";
+    exportBtn.addEventListener("click", () => this.exportDesigns());
+
+    const importBtn = document.createElement("button");
+    importBtn.className = "btn-secondary";
+    importBtn.textContent = "\uD83D\uDCE5 Import Designs";
+    importBtn.title = "Import designs from a JSON file";
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".json";
+    fileInput.style.display = "none";
+    fileInput.addEventListener("change", (e) => { if (e.target.files[0]) this.importDesigns(e.target.files[0]); fileInput.value = ""; });
+    importBtn.addEventListener("click", () => fileInput.click());
+
+    ioRow.appendChild(exportBtn);
+    ioRow.appendChild(importBtn);
+    ioRow.appendChild(fileInput);
+    section.appendChild(ioRow);
+
+    // Render saved designs
+    requestAnimationFrame(() => this.renderDesignSaves());
+
+    return section;
+  },
+
+  buildDesignJsonView() {
+    const section = document.createElement("div");
+    section.className = "divider";
+
+    const helpToggle = document.createElement("div");
+    helpToggle.className = "tab-help";
+    helpToggle.tabIndex = 0;
+    helpToggle.setAttribute("role", "button");
+    helpToggle.setAttribute("aria-expanded", "false");
+    helpToggle.textContent = "View Raw JSON";
+
+    const helpContent = document.createElement("div");
+    helpContent.className = "tab-help-content";
+    helpContent.tabIndex = -1;
+
+    helpToggle.addEventListener("click", () => {
+      helpToggle.classList.toggle("expanded");
+      const expanded = helpToggle.classList.contains("expanded");
+      helpToggle.setAttribute("aria-expanded", expanded);
+      helpContent.classList.toggle("show", expanded);
+      helpContent.tabIndex = expanded ? 0 : -1;
+    });
+    helpToggle.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); helpToggle.click(); }
+    });
+
+    const jsonHeader = document.createElement("div");
+    jsonHeader.className = "json-section-header";
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn-secondary btn-sm";
+    copyBtn.textContent = "\uD83D\uDCCB Copy JSON";
+    copyBtn.title = "Copy design JSON to clipboard";
+    copyBtn.addEventListener("click", () => {
+      const json = document.getElementById("designJson");
+      if (json) navigator.clipboard.writeText(json.textContent);
+    });
+    jsonHeader.appendChild(copyBtn);
+
+    const jsonPre = document.createElement("pre");
+    jsonPre.id = "designJson";
+    jsonPre.tabIndex = 0;
+
+    helpContent.appendChild(jsonHeader);
+    helpContent.appendChild(jsonPre);
+
+    section.appendChild(helpToggle);
+    section.appendChild(helpContent);
+    return section;
+  },
+
+  updateDesignedInstrument() {
+    this.writeDesignJson();
+    // Reset find-seed state on any instrument edit
+    if (this.findSeedTimer) { clearInterval(this.findSeedTimer); this.findSeedTimer = null; }
+    this.findSeedBestScore = null;
+    this.findSeedTarget = null;
+    const improveBtn = document.getElementById("findImprovedButton");
+    if (improveBtn) { improveBtn.style.display = "none"; improveBtn.textContent = "\uD83D\uDD04 Find Improved"; }
+    const loadBtn = document.getElementById("loadSeedInGenerator");
+    if (loadBtn) loadBtn.style.display = "none";
+    const findBtn = document.getElementById("findSeedButton");
+    if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
+  },
+
+  redrawDesignCanvases() {
+    document.querySelectorAll(".design-env-canvas").forEach(canvas => {
+      if (canvas._drawFn) requestAnimationFrame(() => canvas._drawFn());
+    });
+  },
+
+  writeDesignJson() {
+    const jsonEl = document.getElementById("designJson");
+    if (jsonEl) jsonEl.textContent = JSON.stringify(this.designedInstrument, null, 2);
+    this.updateDesignCodeSample();
+    try { localStorage.setItem("zynCurrentDesign", JSON.stringify(this.designedInstrument)); } catch (e) { /* quota */ }
+  },
+
+  updateDesignCodeSample() {
+    const el = document.getElementById("designCodeSample");
+    if (!el) return;
+    // Build a clean instrument object (filter out disabled oscs, remove 'enabled' property)
+    const cleanInst = {
+      type: this.designedInstrument.type,
+      oscs: this.designedInstrument.oscs
+        .filter(o => o.enabled !== false)
+        .map(o => { const { enabled, ...rest } = o; return rest; })
+    };
+    const vol = this.designedInstrument.volume ?? 1.0;
+    const oct = this.designedInstrument.octave ?? 0;
+    const instJson = JSON.stringify(cleanInst, null, 2);
+    const noteArg = oct === 0 ? "0" : String(oct * 12);
+    const gainArg = vol === 1.0 ? "" : `, ${vol.toFixed(2)}`;
+    el.textContent =
+`<script src="Z.js"><\/script>
+<script>
+  // Initialise audio (must be called after user interaction)
+  Z.init();
+
+  // Custom designed instrument
+  const instrument = ${instJson};
+
+  // Play middle C (one-shot with full ADSR envelope)
+  Z.play(${noteArg}, instrument${gainArg});
+
+  // Or use noteOn/noteOff for sustained notes:
+  // const voiceId = Z.noteOn(${noteArg}, instrument${gainArg});
+  // Z.noteOff(voiceId);
+<\/script>`;
+  },
+
+  renderDesignSaves() {
+    const container = document.getElementById("designSavesContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    if (this.designSaves.length === 0) {
+      container.innerHTML = '<div class="no-presets">No saved designs yet.</div>';
+      return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "channel-preset-grid";
+    this.designSaves.forEach((design, index) => {
+      const item = document.createElement("div");
+      item.className = "preset-item";
+
+      const name = document.createElement("span");
+      name.className = "preset-name";
+      name.tabIndex = 0;
+      name.textContent = design.name;
+      name.title = "Click to load this design";
+      name.addEventListener("click", () => {
+        this.designedInstrument = JSON.parse(JSON.stringify(design.instrument));
+        this.renderDesignUI();
+      });
+      name.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); name.click(); }
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "preset-controls";
+
+      const renameBtn = document.createElement("button");
+      renameBtn.className = "preset-btn rename";
+      renameBtn.textContent = "Rename";
+      renameBtn.addEventListener("click", () => {
+        const newName = prompt("Enter new name:", design.name);
+        if (newName && newName.trim()) {
+          this.designSaves[index].name = newName.trim();
+          this.saveDesignSaves();
+          this.renderDesignSaves();
+        }
+      });
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "preset-btn delete";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => {
+        if (confirm(`Delete design "${design.name}"?`)) {
+          this.designSaves.splice(index, 1);
+          this.saveDesignSaves();
+          this.renderDesignSaves();
+        }
+      });
+
+      actions.appendChild(renameBtn);
+      actions.appendChild(deleteBtn);
+      item.appendChild(name);
+      item.appendChild(actions);
+      grid.appendChild(item);
+    });
+    container.appendChild(grid);
+  },
+
+  handleFindSeed(findImproved) {
+    if (this.findSeedTimer) return;
+    const findBtn = document.getElementById("findSeedButton");
+    const improveBtn = document.getElementById("findImprovedButton");
+    const loadBtn = document.getElementById("loadSeedInGenerator");
+    const typeSelect = document.getElementById("findSeedTypeSelect");
+
+    const target = findImproved && this.findSeedTarget ? this.findSeedTarget : JSON.parse(JSON.stringify(this.designedInstrument));
+    if (!findImproved) {
+      this.findSeedTarget = target;
+      this.findSeedBestScore = null;
+    }
+
+    // Get type constraint from selector
+    const typeValue = typeSelect ? typeSelect.value : "any";
+    const constrainType = typeValue !== "any";
+    const searchTypeDigit = constrainType ? parseInt(typeValue) : -1;
+
+    let bestSeed = null;
+    let bestScore = findImproved ? (this.findSeedBestScore ?? -1) : -1;
+    let tested = 0;
+    const duration = findImproved ? 0 : 10000; // 0 = no time limit for find-improved
+    const startTime = Date.now();
+
+    if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Searching..."; findBtn.classList.remove("btn-info"); findBtn.classList.add("btn-warning"); findBtn.disabled = true; }
+    if (improveBtn && findImproved) { improveBtn.textContent = "\u23F9 Cancel"; }
+    if (improveBtn && !findImproved) improveBtn.style.display = "none";
+    if (loadBtn && !findImproved) loadBtn.style.display = "none";
+
+    const batchSize = 100;
+    const finishSearch = (seed, score) => {
+      clearInterval(this.findSeedTimer);
+      this.findSeedTimer = null;
+      this.findSeedBestScore = score;
+      if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
+      if (improveBtn) { improveBtn.style.display = ""; improveBtn.textContent = "\uD83D\uDD04 Find Improved"; }
+      if (seed !== null && loadBtn) {
+        loadBtn.style.display = "";
+        loadBtn.dataset.seed = seed;
+        const typeIdx = Math.abs(seed) % 10;
+        const pct = score !== null && score >= 0 ? ` ${score.toFixed(1)}%` : "";
+        loadBtn.textContent = `\u27A1 Load #${seed} (${this.typeNames[typeIdx]})${pct}`;
+      }
+    };
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      // Time-limited mode (initial search): stop after duration
+      if (!findImproved && elapsed >= duration) {
+        finishSearch(bestSeed, bestScore);
+        return;
+      }
+      let foundImprovement = false;
+      for (let i = 0; i < batchSize; i++) {
+        // Generate seed — constrain to type if selected
+        const seed = constrainType
+          ? Math.floor(Math.random() * Math.floor(Z.mInt / 10)) * 10 + searchTypeDigit
+          : Math.floor(Math.random() * Z.mInt);
+        const candidate = Z.getInstrument(seed);
+        const score = this.compareInstruments(target, candidate);
+        if (score > bestScore) {
+          bestScore = score;
+          bestSeed = seed;
+          if (findImproved) { foundImprovement = true; break; }
+        }
+        tested++;
+      }
+      if (findImproved && foundImprovement) {
+        finishSearch(bestSeed, bestScore);
+        return;
+      }
+      const pct = bestScore > 0 ? " — " + bestScore.toFixed(1) + "%" : "";
+      if (!findImproved) {
+        const remaining = Math.ceil((duration - elapsed) / 1000);
+        if (findBtn) findBtn.textContent = `\uD83D\uDD0D ${remaining}s${pct}`;
+      } else {
+        if (findBtn) findBtn.textContent = `\uD83D\uDD0D Searching...${pct}`;
+      }
+    };
+
+    tick();
+    this.findSeedTimer = setInterval(tick, 100);
+  },
+
+  exportDesigns() {
+    if (this.designSaves.length === 0) { alert("No designs to export"); return; }
+    const data = JSON.stringify(this.designSaves, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "zyn-designs.json"; a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  importDesigns(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (!Array.isArray(imported)) throw new Error("Invalid format");
+        let count = 0;
+        imported.forEach(d => {
+          if (d.name && d.instrument && Array.isArray(d.instrument.oscs)) {
+            this.designSaves.push({ name: d.name, instrument: d.instrument, timestamp: d.timestamp || Date.now() });
+            count++;
+          }
+        });
+        this.saveDesignSaves();
+        this.renderDesignSaves();
+        alert(`Imported ${count} design(s)`);
+      } catch (err) {
+        alert("Failed to import: Invalid design file");
+      }
+    };
+    reader.readAsText(file);
   },
 };
 

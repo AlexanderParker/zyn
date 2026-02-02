@@ -281,6 +281,11 @@ button.btn-info:hover:not(:disabled) {
   line-height: 1;
 }
 
+.btn-icon.btn-xs {
+  font-size: 0.7rem;
+  padding: 1px 2px;
+}
+
 .btn-icon:hover:not(:disabled) {
   opacity: 1;
   background: transparent;
@@ -1077,6 +1082,7 @@ button.btn-info:hover:not(:disabled) {
   background: var(--bg-input);
   flex-shrink: 0;
   transition: all 0.15s ease;
+  margin-left: auto;
 }
 
 .channel-activity.on {
@@ -1105,15 +1111,31 @@ button.btn-info:hover:not(:disabled) {
   background: var(--accent-secondary-hover);
 }
 
-.set-active-btn:disabled {
+.set-active-btn:disabled,
+.set-active-btn[aria-disabled="true"] {
   background: var(--accent-success);
   opacity: 1;
   cursor: default;
 }
 
+.set-active-btn[aria-disabled="true"]:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .clear-btn {
   background: var(--accent-danger);
   margin: 0;
+}
+
+.clear-btn[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.clear-btn[aria-disabled="true"]:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* =============================================
@@ -1154,6 +1176,34 @@ button.btn-info:hover:not(:disabled) {
   overflow: auto;
   max-height: 400px;
   margin: 0;
+}
+
+.code-sample:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+}
+
+h1:focus-visible,
+h2:focus-visible,
+h3:focus-visible,
+p[tabindex]:focus-visible,
+ul[tabindex]:focus-visible,
+strong[tabindex]:focus-visible,
+label[tabindex]:focus-visible,
+.channel-label:focus-visible,
+.preset-seed:focus-visible,
+#instrumentHeaderSeed:focus-visible,
+#instrumentTypeLabel:focus-visible,
+.notice:focus-visible,
+.osc-card:focus-visible,
+.env-block:focus-visible,
+.mod-badges:focus-visible,
+.fx-chain:focus-visible,
+.tab-help-content:focus-visible,
+[role="status"]:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* =============================================
@@ -1314,6 +1364,20 @@ button.btn-info:hover:not(:disabled) {
   .osc-envelopes {
     flex-direction: column;
   }
+
+  .design-env-row-container {
+    flex-direction: column;
+  }
+
+  .design-env-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+  }
+
+  .design-env-col {
+    flex: unset;
+  }
 }
 
 /* =============================================
@@ -1411,4 +1475,299 @@ button.btn-info:hover:not(:disabled) {
   .side-panels > .tab-content {
     display: none !important;
   }
+}
+
+/* Focus sentinel — visually hidden element at end of tab panels for focus wrapping */
+.focus-sentinel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* =============================================
+   INSTRUMENT DESIGN TAB
+   ============================================= */
+.design-osc {
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  transition: border-color 0.2s ease;
+}
+
+.design-osc:hover {
+  border-color: var(--accent-secondary);
+}
+
+.design-osc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.design-osc-header:hover {
+  background: var(--bg-hover);
+}
+
+.design-osc-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.design-osc-chevron {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.design-osc-body {
+  padding: var(--space-3);
+}
+
+.design-osc-body.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.design-osc.osc-disabled {
+  opacity: 0.7;
+  border-color: var(--border-color);
+}
+
+.design-osc.osc-disabled .design-osc-header {
+  background: var(--bg-hover);
+}
+
+.design-osc-enable {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.design-osc-enable input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.design-row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.design-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.design-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.design-input {
+  width: 72px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.design-input:focus {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 1px;
+}
+
+.design-select {
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.design-select:focus {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 1px;
+}
+
+/* Envelope editor — side-by-side tiles like instrument visualizer */
+.design-env-row-container {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.design-env-tile {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.design-env-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.design-env-canvas {
+  display: block;
+  width: 100%;
+  height: 64px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+}
+
+.design-env-grid {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.design-env-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.design-env-stage {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.design-env-col .design-input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.7rem;
+  padding: 2px 3px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.design-env-col .design-input::-webkit-outer-spin-button,
+.design-env-col .design-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input.design-input-flat {
+  -moz-appearance: textfield;
+}
+
+input.design-input-flat::-webkit-outer-spin-button,
+input.design-input-flat::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Tile-based toggle sections — always visible, greyed when disabled */
+.design-tiles-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.design-tile {
+  flex: 1;
+  min-width: 130px;
+  background: var(--bg-section);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  transition: border-color 0.2s ease;
+}
+
+.design-tile.enabled {
+  border-color: var(--accent-secondary);
+  background: var(--bg-container);
+}
+
+.design-tile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-bottom: var(--space-2);
+  user-select: none;
+}
+
+.design-tile-header input[type="checkbox"] {
+  accent-color: var(--accent-secondary);
+  cursor: pointer;
+}
+
+.design-tile-header:hover {
+  color: var(--text-primary);
+}
+
+.design-tile-content {
+  transition: opacity 0.15s ease;
+}
+
+.design-tile-content.disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.design-tile-content .design-row {
+  margin-bottom: 0;
+}
+
+.design-tile-content .design-control {
+  min-width: 0;
+}
+
+.design-tile-content .design-input {
+  width: 60px;
+  font-size: 0.75rem;
+}
+
+.design-tile-content .design-select {
+  font-size: 0.75rem;
+}
+
+/* Focus-visible for design elements */
+.design-osc:focus-visible,
+.design-osc-header:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
