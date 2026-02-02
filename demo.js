@@ -1632,44 +1632,58 @@ const ZynDemo = {
     return totalWeight > 0 ? (matchScore / totalWeight) * 100 : 0;
   },
 
-  handleFindSimilar(retry) {
+  handleFindSimilar(mode) {
+    // mode: false = timed 10s, true = retry, "threshold" = search until threshold
     if (this.findSimilarTimer) return; // Already running
     const btn = document.getElementById("findSimilarButton");
     const retryBtn = document.getElementById("retrySimilarButton");
-    // On retry, use the stored original target; otherwise capture current instrument
-    const target = retry && this.findSimilarTarget
+    const searchUntilBtn = document.getElementById("searchUntilSimilarButton");
+    const thresholdSelect = document.getElementById("similarThresholdSelect");
+    const isThreshold = mode === "threshold";
+    const retry = mode === true;
+
+    // On retry or threshold, use the stored original target; otherwise capture current instrument
+    const target = (retry || isThreshold) && this.findSimilarTarget
       ? this.findSimilarTarget
       : this.randInstrument;
-    if (!retry) this.findSimilarTarget = target;
+    if (!retry && !isThreshold) this.findSimilarTarget = target;
+    if (isThreshold && !this.findSimilarTarget) this.findSimilarTarget = target;
+
+    const threshold = isThreshold && thresholdSelect ? parseInt(thresholdSelect.value) : 0;
     const typeIdx = Z.instrumentTypes.indexOf(target.type);
     const searchTypeDigit = typeIdx >= 0 ? typeIdx : Math.abs(this.randInstrumentSeed) % 10;
     let bestSeed = null;
     let bestScore = -1;
     let tested = 0;
-    const duration = 10000;
+    const duration = isThreshold ? 0 : 10000;
     const startTime = Date.now();
 
     btn.textContent = "\u{1F50D} Searching...";
     btn.classList.remove("btn-info");
     btn.classList.add("btn-warning");
     retryBtn.style.display = "none";
+    if (searchUntilBtn && isThreshold) searchUntilBtn.textContent = "\u23F9 Cancel";
 
     const batchSize = 100;
+    const finishSimilar = () => {
+      clearInterval(this.findSimilarTimer);
+      this.findSimilarTimer = null;
+      btn.textContent = "\u{1F50D} Find Similar";
+      btn.classList.remove("btn-warning");
+      btn.classList.add("btn-info");
+      retryBtn.style.display = "";
+      if (searchUntilBtn) searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
+      if (bestSeed !== null) {
+        document.getElementById("instrumentSeedInput").value = bestSeed;
+        this.activePresetIndex = null;
+        this.updateInstrumentAndPushState(bestSeed);
+      }
+    };
+
     const tick = () => {
       const elapsed = Date.now() - startTime;
-      if (elapsed >= duration) {
-        // Done — apply best match
-        clearInterval(this.findSimilarTimer);
-        this.findSimilarTimer = null;
-        btn.textContent = "\u{1F50D} Find Similar";
-        btn.classList.remove("btn-warning");
-        btn.classList.add("btn-info");
-        retryBtn.style.display = "";
-        if (bestSeed !== null) {
-          document.getElementById("instrumentSeedInput").value = bestSeed;
-          this.activePresetIndex = null;
-          this.updateInstrumentAndPushState(bestSeed);
-        }
+      if (!isThreshold && elapsed >= duration) {
+        finishSimilar();
         return;
       }
       // Test a batch of random seeds in the same type
@@ -1680,12 +1694,21 @@ const ZynDemo = {
         if (score > bestScore) {
           bestScore = score;
           bestSeed = seed;
+          if (isThreshold && bestScore >= threshold) {
+            finishSimilar();
+            return;
+          }
         }
         tested++;
       }
       // Update button with progress
-      const remaining = Math.ceil((duration - elapsed) / 1000);
-      btn.textContent = `\u{1F50D} ${remaining}s${bestScore > 0 ? " — " + bestScore.toFixed(1) + "%" : ""}`;
+      const pct = bestScore > 0 ? " \u2014 " + bestScore.toFixed(1) + "%" : "";
+      if (!isThreshold) {
+        const remaining = Math.ceil((duration - elapsed) / 1000);
+        btn.textContent = `\u{1F50D} ${remaining}s${pct}`;
+      } else {
+        btn.textContent = `\u{1F50D} Searching...${pct}`;
+      }
     };
 
     tick();
@@ -2440,6 +2463,21 @@ const ZynDemo = {
     document.getElementById("randomInstrumentButton").addEventListener("click", this.handleRandomInstrument.bind(this));
     document.getElementById("findSimilarButton").addEventListener("click", () => this.handleFindSimilar(false));
     document.getElementById("retrySimilarButton").addEventListener("click", () => this.handleFindSimilar(true));
+    document.getElementById("searchUntilSimilarButton").addEventListener("click", () => {
+      if (this.findSimilarTimer) {
+        // Cancel active search
+        clearInterval(this.findSimilarTimer);
+        this.findSimilarTimer = null;
+        const btn = document.getElementById("findSimilarButton");
+        btn.textContent = "\u{1F50D} Find Similar";
+        btn.classList.remove("btn-warning");
+        btn.classList.add("btn-info");
+        document.getElementById("retrySimilarButton").style.display = "";
+        document.getElementById("searchUntilSimilarButton").textContent = "\uD83C\uDFAF Search Until";
+      } else {
+        this.handleFindSimilar("threshold");
+      }
+    });
     document.getElementById("copyHeaderSeed").addEventListener("click", (e) => {
       e.stopPropagation();
       this.copyToClipboard(String(this.randInstrumentSeed), document.getElementById("copyHeaderSeed"));
@@ -3746,11 +3784,45 @@ const ZynDemo = {
         improveBtn.textContent = "\uD83D\uDD04 Find Improved";
         const findBtn = document.getElementById("findSeedButton");
         if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
+        const sub = document.getElementById("searchUntilSeedButton");
+        if (sub) sub.textContent = "\uD83C\uDFAF Search Until";
       } else {
         this.handleFindSeed(true);
       }
     });
     findRow.appendChild(improveBtn);
+
+    const thresholdSelect = document.createElement("select");
+    thresholdSelect.id = "findSeedThresholdSelect";
+    thresholdSelect.title = "Match threshold for continuous search";
+    [80, 85, 90, 95].forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = String(v);
+      opt.textContent = `${v}%`;
+      if (v === 90) opt.selected = true;
+      thresholdSelect.appendChild(opt);
+    });
+    findRow.appendChild(thresholdSelect);
+
+    const searchUntilBtn = document.createElement("button");
+    searchUntilBtn.id = "searchUntilSeedButton";
+    searchUntilBtn.className = "btn-secondary";
+    searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
+    searchUntilBtn.title = "Search continuously until the threshold is met";
+    searchUntilBtn.addEventListener("click", () => {
+      if (this.findSeedTimer) {
+        // Cancel active search
+        clearInterval(this.findSeedTimer);
+        this.findSeedTimer = null;
+        searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
+        const findBtn = document.getElementById("findSeedButton");
+        if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
+        if (improveBtn) improveBtn.textContent = "\uD83D\uDD04 Find Improved";
+      } else {
+        this.handleFindSeed("threshold");
+      }
+    });
+    findRow.appendChild(searchUntilBtn);
 
     const loadGenBtn = document.createElement("button");
     loadGenBtn.id = "loadSeedInGenerator";
@@ -3901,6 +3973,8 @@ const ZynDemo = {
     this.persistFindSeedState();
     const improveBtn = document.getElementById("findImprovedButton");
     if (improveBtn) { improveBtn.style.display = "none"; improveBtn.textContent = "\uD83D\uDD04 Find Improved"; }
+    const searchUntilBtn = document.getElementById("searchUntilSeedButton");
+    if (searchUntilBtn) searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
     const loadBtn = document.getElementById("loadSeedInGenerator");
     if (loadBtn) loadBtn.style.display = "none";
     const findBtn = document.getElementById("findSeedButton");
@@ -4055,34 +4129,44 @@ const ZynDemo = {
     container.appendChild(grid);
   },
 
-  handleFindSeed(findImproved) {
+  handleFindSeed(mode) {
+    // mode: false = timed 10s, true = find improved, "threshold" = search until threshold
     if (this.findSeedTimer) return;
     const findBtn = document.getElementById("findSeedButton");
     const improveBtn = document.getElementById("findImprovedButton");
+    const searchUntilBtn = document.getElementById("searchUntilSeedButton");
     const loadBtn = document.getElementById("loadSeedInGenerator");
     const typeSelect = document.getElementById("findSeedTypeSelect");
+    const thresholdSelect = document.getElementById("findSeedThresholdSelect");
+    const isThreshold = mode === "threshold";
+    const findImproved = mode === true;
 
-    const target = findImproved && this.findSeedTarget ? this.findSeedTarget : JSON.parse(JSON.stringify(this.designedInstrument));
-    if (!findImproved) {
+    const target = (findImproved || isThreshold) && this.findSeedTarget ? this.findSeedTarget : JSON.parse(JSON.stringify(this.designedInstrument));
+    if (!findImproved && !isThreshold) {
       this.findSeedTarget = target;
       this.findSeedBestScore = null;
+    } else if (isThreshold && !this.findSeedTarget) {
+      this.findSeedTarget = target;
     }
+
+    const threshold = isThreshold && thresholdSelect ? parseInt(thresholdSelect.value) : 0;
 
     // Get type constraint from selector
     const typeValue = typeSelect ? typeSelect.value : "any";
     const constrainType = typeValue !== "any";
     const searchTypeDigit = constrainType ? parseInt(typeValue) : -1;
 
-    let bestSeed = null;
-    let bestScore = findImproved ? (this.findSeedBestScore ?? -1) : -1;
+    let bestSeed = (findImproved || isThreshold) ? (this.findSeedBestSeed ?? null) : null;
+    let bestScore = (findImproved || isThreshold) ? (this.findSeedBestScore ?? -1) : -1;
     let tested = 0;
-    const duration = findImproved ? 0 : 10000; // 0 = no time limit for find-improved
+    const duration = (findImproved || isThreshold) ? 0 : 10000;
     const startTime = Date.now();
 
     if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Searching..."; findBtn.classList.remove("btn-info"); findBtn.classList.add("btn-warning"); findBtn.disabled = true; }
     if (improveBtn && findImproved) { improveBtn.textContent = "\u23F9 Cancel"; }
-    if (improveBtn && !findImproved) improveBtn.style.display = "none";
-    if (loadBtn && !findImproved) loadBtn.style.display = "none";
+    if (improveBtn && !findImproved && !isThreshold) improveBtn.style.display = "none";
+    if (searchUntilBtn && isThreshold) { searchUntilBtn.textContent = "\u23F9 Cancel"; }
+    if (loadBtn && !findImproved && !isThreshold) loadBtn.style.display = "none";
 
     const batchSize = 100;
     const finishSearch = (seed, score) => {
@@ -4093,17 +4177,18 @@ const ZynDemo = {
       this.persistFindSeedState();
       if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
       if (improveBtn) improveBtn.textContent = "\uD83D\uDD04 Find Improved";
+      if (searchUntilBtn) searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
       this.showFindSeedResult(seed, score);
     };
 
     const tick = () => {
       const elapsed = Date.now() - startTime;
       // Time-limited mode (initial search): stop after duration
-      if (!findImproved && elapsed >= duration) {
+      if (!findImproved && !isThreshold && elapsed >= duration) {
         finishSearch(bestSeed, bestScore);
         return;
       }
-      let foundImprovement = false;
+      let foundMatch = false;
       for (let i = 0; i < batchSize; i++) {
         // Generate seed — constrain to type if selected
         const seed = constrainType
@@ -4114,16 +4199,17 @@ const ZynDemo = {
         if (score > bestScore) {
           bestScore = score;
           bestSeed = seed;
-          if (findImproved) { foundImprovement = true; break; }
+          if (findImproved) { foundMatch = true; break; }
+          if (isThreshold && bestScore >= threshold) { foundMatch = true; break; }
         }
         tested++;
       }
-      if (findImproved && foundImprovement) {
+      if ((findImproved || isThreshold) && foundMatch) {
         finishSearch(bestSeed, bestScore);
         return;
       }
-      const pct = bestScore > 0 ? " — " + bestScore.toFixed(1) + "%" : "";
-      if (!findImproved) {
+      const pct = bestScore > 0 ? " \u2014 " + bestScore.toFixed(1) + "%" : "";
+      if (!findImproved && !isThreshold) {
         const remaining = Math.ceil((duration - elapsed) / 1000);
         if (findBtn) findBtn.textContent = `\uD83D\uDD0D ${remaining}s${pct}`;
       } else {

@@ -94,6 +94,13 @@
               <button id="randomInstrumentButton" class="btn-success" title="Generate a random instrument of the selected type">&#127922; Generate Random</button>
               <button id="findSimilarButton" class="btn-info" title="Search for instruments similar to the current one">&#128269; Find Similar</button>
               <button id="retrySimilarButton" class="btn-secondary" style="display: none;" title="Search again using the original instrument as reference">&#128260; Retry</button>
+              <select id="similarThresholdSelect" title="Match threshold for continuous search">
+                <option value="80">80%</option>
+                <option value="85">85%</option>
+                <option value="90" selected>90%</option>
+                <option value="95">95%</option>
+              </select>
+              <button id="searchUntilSimilarButton" class="btn-secondary" title="Search continuously until the threshold is met">&#127919; Search Until</button>
             </div>
           </div>
 
