@@ -169,6 +169,7 @@ let Z = {
     let SR = Z.sampleRate;
     // Create and connect oscillators, filters, and effects for each note
     notes.forEach((note) => {
+      let noteOscNodes = []; // Collect osc references for FM matrix wiring
       layer.instrument.oscs.forEach((cnf) => {
         let osc;
         let oFreq = Z.freq(rootNote, note + cnf.oct * 12 + cnf.detune);
@@ -193,6 +194,7 @@ let Z = {
           osc.type = cnf.waveform || "sine";
           osc.frequency.value = oFreq;
         }
+        noteOscNodes.push({ osc, freq: oFreq, waveform: cnf.waveform });
         // Create gain node and apply ADSR envelope
         let nGain = Z.aC.createGain();
         if (sustained) {
@@ -294,8 +296,8 @@ let Z = {
         osc.connect(nFilt);
         nFilt.connect(nGain);
         nGain.connect(nPan);
-        // Create delay effect if specified
-        let nDel, nVerb;
+        // Create delay effect if specified (with dry/wet mix)
+        let nDel, nDry, nVerb;
         if (!cnf?.fx?.del) {
           let nDelID = Z.id({ ...cnf, d: "0" });
           nDel = Z.fxNodes[nDelID];
@@ -303,6 +305,7 @@ let Z = {
             nDel = Z.aC.createGain();
             Z.fxNodes[nDelID] = nDel; // Store the same node we use
           }
+          nPan.connect(nDel);
         } else {
           let dC = cnf.fx.del;
           let dId = Z.id(dC);
@@ -316,8 +319,17 @@ let Z = {
             dF.connect(nDel);
             Z.fxNodes[dId] = nDel;
           }
+          // Create dry signal path with mix level
+          let dryId = Z.id({ ...dC, dry: 1 });
+          nDry = Z.fxNodes[dryId];
+          if (!nDry) {
+            nDry = Z.aC.createGain();
+            nDry.gain.value = dC.mix ?? 1; // Default mix=1 (full dry signal)
+            Z.fxNodes[dryId] = nDry;
+          }
+          nPan.connect(nDel); // Wet path (delayed)
+          nPan.connect(nDry); // Dry path (immediate)
         }
-        nPan.connect(nDel);
         // Create reverb effect if specified
         if (!cnf?.fx?.verb) {
           let noId = Z.id({ ...cnf, r: "0" });
@@ -345,9 +357,34 @@ let Z = {
         }
         // Connect Delay -> Reverb -> Output (via master gain)
         nDel.connect(nVerb);
+        if (nDry) nDry.connect(nVerb); // Dry path also goes to reverb
         nVerb.connect(Z.masterGain);
         oscs.push(osc);
       });
+      // Wire FM matrix connections between oscillators for this note
+      let fmMtx = layer.instrument.fmMatrix;
+      let fmDel = layer.instrument.fmDelays;
+      if (fmMtx) {
+        for (let s = 0; s < noteOscNodes.length; s++) {
+          if (!fmMtx[s]) continue;
+          for (let t = 0; t < noteOscNodes.length; t++) {
+            let amt = fmMtx[s][t];
+            if (!amt) continue;
+            if (noteOscNodes[s].waveform === "noise" || noteOscNodes[t].waveform === "noise") continue;
+            let fmG = Z.aC.createGain();
+            // Gain scales modulator amplitude - frequency-relative for consistent FM across octaves
+            // amt=1 gives ±20% frequency deviation, amt=0.5 gives ±10%, etc.
+            fmG.gain.value = amt * noteOscNodes[t].freq * 0.2;
+            // Add delay to break feedback loops (default 1ms if not specified)
+            let delayTime = fmDel?.[s]?.[t] ?? 0.001;
+            let fmDelay = Z.aC.createDelay(0.1); // Max 100ms
+            fmDelay.delayTime.value = delayTime;
+            noteOscNodes[s].osc.connect(fmDelay);
+            fmDelay.connect(fmG);
+            fmG.connect(noteOscNodes[t].osc.frequency);
+          }
+        }
+      }
     });
     // Apply distortion if specified
     let dCurve = layer?.dist?.curve || null;
@@ -622,8 +659,28 @@ let Z = {
         },
       });
     }
+    // FM Matrix generation — uses separate PRNG to avoid changing existing seeds
+    let fmMatrix = null;
+    if (oscs.length > 1) {
+      let fmR = Z.m32(seed + 9999);
+      let firstDigit = parseInt(String(Math.abs(seed))[0]) || 0;
+      let fmProb = firstDigit / 10; // 1=10%, 9=90%, 0=0%
+      if (fmR() < fmProb) {
+        let n = oscs.length;
+        fmMatrix = Array.from({ length: n }, () => new Array(n).fill(0));
+        // At least one modulation route, then 50% chance to add more
+        do {
+          let src = Math.floor(fmR(n));
+          let tgt = Math.floor(fmR(n));
+          if (fmMatrix[src][tgt] === 0) {
+            fmMatrix[src][tgt] = fmR(2) - 1; // Range: -1 to 1
+          }
+        } while (fmR() < 0.5);
+      }
+    }
     return {
       type: iType.t,
+      fmMatrix: fmMatrix,
       oscs: oscs,
     };
   },

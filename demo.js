@@ -1413,9 +1413,33 @@ const ZynDemo = {
   getActiveInstrument() {
     if (this.useDesignedInstrument && this.designedInstrument) {
       // Filter out disabled oscillators and return a playable version
-      const enabledOscs = this.designedInstrument.oscs.filter(o => o.enabled !== false);
-      if (enabledOscs.length === 0) return this.randInstrument; // Fallback if all disabled
-      return { ...this.designedInstrument, oscs: enabledOscs };
+      const allOscs = this.designedInstrument.oscs;
+      const enabledIndices = [];
+      allOscs.forEach((o, i) => { if (o.enabled !== false) enabledIndices.push(i); });
+      if (enabledIndices.length === 0) return this.randInstrument; // Fallback if all disabled
+      const enabledOscs = enabledIndices.map(i => allOscs[i]);
+      // Remap fmMatrix and fmDelays to only include enabled oscillator routes
+      let fmMatrix = null;
+      let fmDelays = null;
+      if (this.designedInstrument.fmMatrix) {
+        const n = enabledIndices.length;
+        fmMatrix = Array.from({ length: n }, (_, si) =>
+          Array.from({ length: n }, (_, ti) =>
+            this.designedInstrument.fmMatrix[enabledIndices[si]]?.[enabledIndices[ti]] || 0
+          )
+        );
+        // Set to null if all zeros
+        if (!fmMatrix.some(row => row.some(v => v !== 0))) fmMatrix = null;
+        // Also remap delays if matrix is active
+        if (fmMatrix && this.designedInstrument.fmDelays) {
+          fmDelays = Array.from({ length: n }, (_, si) =>
+            Array.from({ length: n }, (_, ti) =>
+              this.designedInstrument.fmDelays[enabledIndices[si]]?.[enabledIndices[ti]] ?? 0.001
+            )
+          );
+        }
+      }
+      return { ...this.designedInstrument, oscs: enabledOscs, fmMatrix, fmDelays };
     }
     return this.randInstrument;
   },
@@ -1627,6 +1651,29 @@ const ZynDemo = {
       matchScore += (fxCount > 0 ? fxSim / fxCount : 0) * oscWeight * 0.05;
       totalWeight += oscWeight * 0.05;
     }
+
+    // FM Matrix comparison (weight: 3 points)
+    const fmA = a.fmMatrix, fmB = b.fmMatrix;
+    if (!fmA && !fmB) {
+      matchScore += 3;
+    } else if (fmA && fmB) {
+      const maxN = Math.max(fmA.length, fmB.length);
+      const minN = Math.min(fmA.length, fmB.length);
+      let fmSim = 0;
+      let fmCells = 0;
+      for (let s = 0; s < minN; s++) {
+        for (let t = 0; t < minN; t++) {
+          const va = fmA[s]?.[t] || 0;
+          const vb = fmB[s]?.[t] || 0;
+          fmSim += proximity(va, vb, 2);
+          fmCells++;
+        }
+      }
+      const sizePenalty = minN / maxN;
+      matchScore += (fmCells > 0 ? (fmSim / fmCells) * sizePenalty : 0) * 3;
+    }
+    // One has matrix, other doesn't: 0 points
+    totalWeight += 3;
 
     // Return percentage (0-100)
     return totalWeight > 0 ? (matchScore / totalWeight) * 100 : 0;
@@ -2778,9 +2825,10 @@ const ZynDemo = {
         if (fx.del) {
           const delBadge = document.createElement("span");
           delBadge.className = "osc-badge fx";
-          delBadge.textContent = `Delay ${(fx.del.time * 1000).toFixed(0)}ms fb:${(fx.del.feedback * 100).toFixed(0)}%`;
+          const mixStr = (fx.del.mix !== undefined && fx.del.mix !== 1) ? ` mix:${(fx.del.mix * 100).toFixed(0)}%` : "";
+          delBadge.textContent = `Delay ${(fx.del.time * 1000).toFixed(0)}ms fb:${(fx.del.feedback * 100).toFixed(0)}%${mixStr}`;
           fxRow.appendChild(delBadge);
-          fxParts.push(`Delay ${(fx.del.time * 1000).toFixed(0)}ms feedback ${(fx.del.feedback * 100).toFixed(0)}%`);
+          fxParts.push(`Delay ${(fx.del.time * 1000).toFixed(0)}ms feedback ${(fx.del.feedback * 100).toFixed(0)}%${mixStr}`);
         }
         if (fx.verb) {
           const verbBadge = document.createElement("span");
@@ -2795,6 +2843,69 @@ const ZynDemo = {
 
       container.appendChild(card);
     });
+
+    // FM Matrix visualization
+    if (inst.fmMatrix) {
+      const hasRouting = inst.fmMatrix.some(row => row.some(v => v !== 0));
+      if (hasRouting) {
+        const matrixCard = document.createElement("div");
+        matrixCard.className = "osc-card";
+        matrixCard.tabIndex = 0;
+        matrixCard.setAttribute("role", "region");
+        matrixCard.setAttribute("aria-label", "FM Matrix routing");
+
+        const header = document.createElement("div");
+        header.className = "osc-header";
+        const label = document.createElement("span");
+        label.className = "osc-label";
+        label.textContent = "FM Matrix";
+        header.appendChild(label);
+        matrixCard.appendChild(header);
+
+        const n = inst.oscs.length;
+        const grid = document.createElement("div");
+        grid.className = "fm-matrix-grid";
+        grid.style.cssText = `display: grid; grid-template-columns: auto repeat(${n}, 1fr); gap: 2px;`;
+
+        // Corner cell
+        const corner = document.createElement("div");
+        corner.className = "fm-matrix-label";
+        corner.textContent = "";
+        grid.appendChild(corner);
+
+        // Column headers
+        for (let t = 0; t < n; t++) {
+          const th = document.createElement("div");
+          th.className = "fm-matrix-label";
+          th.textContent = `O${t + 1}`;
+          grid.appendChild(th);
+        }
+
+        // Rows
+        for (let s = 0; s < n; s++) {
+          const rh = document.createElement("div");
+          rh.className = "fm-matrix-label";
+          rh.textContent = `O${s + 1}`;
+          grid.appendChild(rh);
+
+          for (let t = 0; t < n; t++) {
+            const cell = document.createElement("div");
+            cell.className = "fm-matrix-cell";
+            const val = inst.fmMatrix[s]?.[t] || 0;
+            cell.textContent = val === 0 ? "-" : val.toFixed(2);
+            if (val !== 0) {
+              const intensity = Math.abs(val);
+              const hue = val > 0 ? 190 : 350;
+              cell.style.background = `hsla(${hue}, 80%, 50%, ${intensity * 0.4})`;
+            }
+            grid.appendChild(cell);
+          }
+        }
+
+        matrixCard.appendChild(grid);
+        container.appendChild(matrixCard);
+      }
+    }
   },
 
   createEnvBlock(label, adsr, color) {
@@ -3066,6 +3177,11 @@ const ZynDemo = {
     oscSection.appendChild(oscContainer);
     container.appendChild(oscSection);
 
+    // FM Matrix section (only show if >1 oscillator)
+    if (this.designedInstrument.oscs.length > 1) {
+      container.appendChild(this.buildFMMatrixEditor());
+    }
+
     // Actions section
     container.appendChild(this.buildDesignActions());
 
@@ -3155,6 +3271,22 @@ const ZynDemo = {
       removeBtn.title = `Remove oscillator ${index + 1}`;
       removeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
+        // Remove corresponding FM matrix row and column
+        if (this.designedInstrument.fmMatrix) {
+          this.designedInstrument.fmMatrix.splice(index, 1);
+          this.designedInstrument.fmMatrix.forEach(row => row.splice(index, 1));
+          if (this.designedInstrument.fmMatrix.length <= 1) {
+            this.designedInstrument.fmMatrix = null;
+          }
+        }
+        // Also remove from delays matrix
+        if (this.designedInstrument.fmDelays) {
+          this.designedInstrument.fmDelays.splice(index, 1);
+          this.designedInstrument.fmDelays.forEach(row => row.splice(index, 1));
+          if (this.designedInstrument.fmDelays.length <= 1) {
+            this.designedInstrument.fmDelays = null;
+          }
+        }
         this.designedInstrument.oscs.splice(index, 1);
         this.renderDesignUI();
       });
@@ -3206,7 +3338,7 @@ const ZynDemo = {
     ));
 
     // Detune
-    const detuneCtrl = this.buildDesignNumber("Detune", osc.detune, -100, 100, 1,
+    const detuneCtrl = this.buildDesignNumber("Detune (¢)", osc.detune, -100, 100, 1,
       (v) => { osc.detune = v; this.updateDesignedInstrument(); }
     );
     detuneCtrl.querySelector("input").classList.add("design-input-flat");
@@ -3322,8 +3454,8 @@ const ZynDemo = {
         const row = document.createElement("div");
         row.className = "design-row";
         row.appendChild(this.buildDesignSelect("Type", fmData.type, ["sine", "square", "sawtooth", "triangle"], (v) => { fmData.type = v; this.updateDesignedInstrument(); }));
-        row.appendChild(this.buildDesignNumber("Freq", fmData.frequency, 0.1, 100, 0.1, (v) => { fmData.frequency = v; this.updateDesignedInstrument(); }));
-        row.appendChild(this.buildDesignNumber("Depth", fmData.depth, 1, 500, 1, (v) => { fmData.depth = v; this.updateDesignedInstrument(); }));
+        row.appendChild(this.buildDesignNumber("Freq (Hz)", fmData.frequency, 0.1, 100, 0.1, (v) => { fmData.frequency = v; this.updateDesignedInstrument(); }));
+        row.appendChild(this.buildDesignNumber("Depth (Hz)", fmData.depth, 1, 500, 1, (v) => { fmData.depth = v; this.updateDesignedInstrument(); }));
         frag.appendChild(row);
         return frag;
       },
@@ -3361,7 +3493,8 @@ const ZynDemo = {
     fxRow.className = "design-tiles-row";
 
     const fx = osc.fx || {};
-    const delData = (fx.del && typeof fx.del === "object") ? fx.del : { time: 0.25, feedback: 0.3 };
+    const delData = (fx.del && typeof fx.del === "object") ? fx.del : { time: 0.25, feedback: 0.3, mix: 1 };
+    if (delData.mix === undefined) delData.mix = 1; // Default mix for existing data
     const verbData = (fx.verb && typeof fx.verb === "object") ? fx.verb : { duration: 1.5, decay: 0.8 };
 
     fxRow.appendChild(this.buildDesignToggleSection("Delay", !!fx.del,
@@ -3369,11 +3502,14 @@ const ZynDemo = {
         const frag = document.createDocumentFragment();
         const row = document.createElement("div");
         row.className = "design-row";
-        row.appendChild(this.buildDesignNumber("Time", delData.time, 0, 0.5, 0.001,
+        row.appendChild(this.buildDesignNumber("Time (s)", delData.time, 0, 0.5, 0.001,
           (v) => { delData.time = v; this.updateDesignedInstrument(); }
         ));
         row.appendChild(this.buildDesignNumber("Feedback", delData.feedback, 0, 0.8, 0.01,
           (v) => { delData.feedback = v; this.updateDesignedInstrument(); }
+        ));
+        row.appendChild(this.buildDesignNumber("Mix", delData.mix, 0, 1, 0.01,
+          (v) => { delData.mix = v; this.updateDesignedInstrument(); }
         ));
         frag.appendChild(row);
         return frag;
@@ -3390,7 +3526,7 @@ const ZynDemo = {
         const frag = document.createDocumentFragment();
         const row = document.createElement("div");
         row.className = "design-row";
-        row.appendChild(this.buildDesignNumber("Duration", verbData.duration, 0.1, 3.1, 0.1,
+        row.appendChild(this.buildDesignNumber("Time (s)", verbData.duration, 0.1, 3.1, 0.1,
           (v) => { verbData.duration = v; this.updateDesignedInstrument(); }
         ));
         row.appendChild(this.buildDesignNumber("Decay", verbData.decay, 0.5, 1.0, 0.01,
@@ -3475,6 +3611,141 @@ const ZynDemo = {
     wrap.appendChild(lbl);
     wrap.appendChild(input);
     return wrap;
+  },
+
+  buildFMKnob(value, delay, onChangeAmt, onChangeDelay) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "fm-knob-wrapper";
+
+    // Amount range: -5 to 5
+    const AMT_MIN = -5, AMT_MAX = 5;
+    // Delay range: 0 to 50ms
+    const DLY_MIN = 0, DLY_MAX = 50;
+
+    // Helper to create a single knob with label and value
+    const createKnob = (labelText, initialValue, min, max, formatFn, onChange) => {
+      const container = document.createElement("div");
+      container.className = "fm-knob-container";
+
+      const label = document.createElement("div");
+      label.className = "fm-knob-label";
+      label.textContent = labelText;
+
+      const knob = document.createElement("div");
+      knob.className = "fm-knob";
+      knob.title = `Drag to adjust ${labelText}. Double-click to reset.`;
+
+      const indicator = document.createElement("div");
+      indicator.className = "fm-knob-indicator";
+      knob.appendChild(indicator);
+
+      const valueInput = document.createElement("input");
+      valueInput.type = "text";
+      valueInput.className = "fm-knob-value";
+
+      let currentValue = initialValue;
+
+      const updateVisual = (updateInput = true) => {
+        // Map value to -135..+135 degrees
+        const normalized = (currentValue - min) / (max - min) * 2 - 1; // -1 to 1
+        const angle = normalized * 135;
+        indicator.style.transform = `rotate(${angle}deg)`;
+        if (updateInput) {
+          valueInput.value = formatFn(currentValue);
+        }
+        // Color based on value
+        if (currentValue === 0 || (min === 0 && currentValue === min)) {
+          knob.style.borderColor = "";
+        } else {
+          const hue = currentValue > 0 ? 190 : 350;
+          const intensity = Math.min(1, Math.abs(currentValue) / Math.max(Math.abs(min), Math.abs(max)));
+          knob.style.borderColor = `hsla(${hue}, 80%, 50%, ${0.3 + intensity * 0.7})`;
+        }
+      };
+
+      updateVisual();
+
+      // Input editing
+      valueInput.addEventListener("focus", () => {
+        if (valueInput.value === "-") valueInput.value = "0";
+        valueInput.select();
+      });
+      valueInput.addEventListener("blur", () => {
+        let v = parseFloat(valueInput.value);
+        if (isNaN(v)) v = min === 0 ? min : 0;
+        currentValue = Math.round(Math.max(min, Math.min(max, v)) * 100) / 100;
+        updateVisual();
+        onChange(currentValue);
+      });
+      valueInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") valueInput.blur();
+        if (e.key === "Escape") { updateVisual(); valueInput.blur(); }
+      });
+
+      // Drag interaction
+      let dragging = false;
+      let startY = 0;
+      let startValue = 0;
+
+      const onStart = (e) => {
+        dragging = true;
+        startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+        startValue = currentValue;
+        knob.classList.add("active");
+        e.preventDefault();
+      };
+
+      const onMove = (e) => {
+        if (!dragging) return;
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+        const range = max - min;
+        const delta = (startY - clientY) / 100 * range;
+        currentValue = Math.round(Math.max(min, Math.min(max, startValue + delta)) * 100) / 100;
+        updateVisual();
+        onChange(currentValue);
+        e.preventDefault();
+      };
+
+      const onEnd = () => {
+        if (!dragging) return;
+        dragging = false;
+        knob.classList.remove("active");
+      };
+
+      knob.addEventListener("mousedown", onStart);
+      knob.addEventListener("touchstart", onStart, { passive: false });
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("mouseup", onEnd);
+      document.addEventListener("touchend", onEnd);
+
+      knob.addEventListener("dblclick", () => {
+        currentValue = min === 0 ? min : 0;
+        updateVisual();
+        onChange(currentValue);
+      });
+
+      container.appendChild(label);
+      container.appendChild(knob);
+      container.appendChild(valueInput);
+      return container;
+    };
+
+    // Amount knob
+    const amtKnob = createKnob("Amt", value, AMT_MIN, AMT_MAX,
+      (v) => v === 0 ? "-" : v.toFixed(2),
+      onChangeAmt
+    );
+
+    // Delay knob (value in seconds, display in ms)
+    const dlyKnob = createKnob("Dly", delay * 1000, DLY_MIN, DLY_MAX,
+      (v) => v.toFixed(1),
+      (v) => onChangeDelay(v / 1000)
+    );
+
+    wrapper.appendChild(amtKnob);
+    wrapper.appendChild(dlyKnob);
+    return wrapper;
   },
 
   buildDesignEnvelope(label, adsr, color, onChange) {
@@ -3708,7 +3979,7 @@ const ZynDemo = {
         row.appendChild(this.buildDesignSelect("Type", data.type, ["sine", "square", "sawtooth", "triangle"],
           (v) => { data.type = v; onChange(data); }
         ));
-        row.appendChild(this.buildDesignNumber("Freq", data.frequency, 0.1, 100, 0.1,
+        row.appendChild(this.buildDesignNumber("Freq (Hz)", data.frequency, 0.1, 100, 0.1,
           (v) => { data.frequency = v; onChange(data); }
         ));
         row.appendChild(this.buildDesignNumber("Depth", data.depth, 0, 1, 0.01,
@@ -3722,6 +3993,131 @@ const ZynDemo = {
         else onChange(false);
       }
     );
+  },
+
+  buildFMMatrixEditor() {
+    const section = document.createElement("div");
+    section.className = "divider";
+
+    const inst = this.designedInstrument;
+    const n = inst.oscs.length;
+
+    // Initialize or resize amount matrix
+    if (!inst.fmMatrix) {
+      inst.fmMatrix = Array.from({ length: n }, () => new Array(n).fill(0));
+    }
+    while (inst.fmMatrix.length < n) {
+      inst.fmMatrix.push(new Array(n).fill(0));
+    }
+    inst.fmMatrix.length = n;
+    inst.fmMatrix.forEach(row => {
+      while (row.length < n) row.push(0);
+      row.length = n;
+    });
+
+    // Initialize or resize delay matrix (default 1ms)
+    if (!inst.fmDelays) {
+      inst.fmDelays = Array.from({ length: n }, () => new Array(n).fill(0.001));
+    }
+    while (inst.fmDelays.length < n) {
+      inst.fmDelays.push(new Array(n).fill(0.001));
+    }
+    inst.fmDelays.length = n;
+    inst.fmDelays.forEach(row => {
+      while (row.length < n) row.push(0.001);
+      row.length = n;
+    });
+
+    const hasRouting = inst.fmMatrix.some(row => row.some(v => v !== 0));
+
+    // Header with toggle
+    const header = document.createElement("label");
+    header.className = "design-tile-header";
+    header.style.marginBottom = "var(--space-2)";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = hasRouting;
+    cb.addEventListener("mousedown", (e) => e.preventDefault());
+    const span = document.createElement("span");
+    span.textContent = "FM Matrix";
+    header.appendChild(cb);
+    header.appendChild(span);
+    section.appendChild(header);
+
+    const content = document.createElement("div");
+    content.className = "design-tile-content" + (hasRouting ? "" : " disabled");
+
+    // Grid of knobs
+    const grid = document.createElement("div");
+    grid.className = "fm-matrix-editor";
+    grid.style.gridTemplateColumns = `auto repeat(${n}, 1fr)`;
+
+    // Corner label
+    const corner = document.createElement("div");
+    corner.className = "fm-matrix-editor-label";
+    corner.textContent = "";
+    corner.style.fontSize = "0.6rem";
+    grid.appendChild(corner);
+
+    // Column headers
+    for (let t = 0; t < n; t++) {
+      const th = document.createElement("div");
+      th.className = "fm-matrix-editor-label";
+      th.textContent = `O${t + 1}`;
+      grid.appendChild(th);
+    }
+
+    // Rows of knobs
+    for (let s = 0; s < n; s++) {
+      const rh = document.createElement("div");
+      rh.className = "fm-matrix-editor-label";
+      rh.textContent = `O${s + 1}`;
+      grid.appendChild(rh);
+
+      for (let t = 0; t < n; t++) {
+        const knob = this.buildFMKnob(
+          inst.fmMatrix[s][t],
+          inst.fmDelays[s][t],
+          (val) => { inst.fmMatrix[s][t] = val; this.updateDesignedInstrument(); },
+          (val) => { inst.fmDelays[s][t] = val; this.updateDesignedInstrument(); }
+        );
+        grid.appendChild(knob);
+      }
+    }
+
+    content.appendChild(grid);
+
+    cb.addEventListener("change", () => {
+      if (cb.checked) {
+        content.classList.remove("disabled");
+        // Restore saved matrices or initialize new ones
+        if (inst._fmMatrixBackup) {
+          inst.fmMatrix = inst._fmMatrixBackup;
+          inst.fmDelays = inst._fmDelaysBackup || Array.from({ length: n }, () => new Array(n).fill(0.001));
+          delete inst._fmMatrixBackup;
+          delete inst._fmDelaysBackup;
+          this.updateDesignedInstrument();
+          this.renderDesignUI(); // Rebuild to show restored values
+        } else if (!inst.fmMatrix) {
+          inst.fmMatrix = Array.from({ length: n }, () => new Array(n).fill(0));
+          inst.fmDelays = Array.from({ length: n }, () => new Array(n).fill(0.001));
+        }
+      } else {
+        // Store backup before clearing
+        if (inst.fmMatrix && inst.fmMatrix.some(row => row.some(v => v !== 0))) {
+          inst._fmMatrixBackup = inst.fmMatrix.map(row => [...row]);
+          inst._fmDelaysBackup = inst.fmDelays.map(row => [...row]);
+        }
+        inst.fmMatrix = null;
+        inst.fmDelays = null;
+        content.classList.add("disabled");
+        this.updateDesignedInstrument();
+        this.renderDesignUI(); // Rebuild to reset knobs visually
+      }
+    });
+
+    section.appendChild(content);
+    return section;
   },
 
   buildDesignActions() {
@@ -4015,12 +4411,33 @@ const ZynDemo = {
     const el = document.getElementById("designCodeSample");
     if (!el) return;
     // Build a clean instrument object (filter out disabled oscs, remove 'enabled' property)
+    const allOscs = this.designedInstrument.oscs;
+    const enabledIndices = [];
+    allOscs.forEach((o, i) => { if (o.enabled !== false) enabledIndices.push(i); });
     const cleanInst = {
       type: this.designedInstrument.type,
-      oscs: this.designedInstrument.oscs
-        .filter(o => o.enabled !== false)
-        .map(o => { const { enabled, ...rest } = o; return rest; })
+      oscs: enabledIndices.map(i => { const { enabled, ...rest } = allOscs[i]; return rest; })
     };
+    // Include remapped fmMatrix and fmDelays if present and has non-zero values
+    if (this.designedInstrument.fmMatrix && enabledIndices.length > 1) {
+      const n = enabledIndices.length;
+      const remapped = Array.from({ length: n }, (_, si) =>
+        Array.from({ length: n }, (_, ti) =>
+          this.designedInstrument.fmMatrix[enabledIndices[si]]?.[enabledIndices[ti]] || 0
+        )
+      );
+      if (remapped.some(row => row.some(v => v !== 0))) {
+        cleanInst.fmMatrix = remapped;
+        // Include delays if fmMatrix is active
+        if (this.designedInstrument.fmDelays) {
+          cleanInst.fmDelays = Array.from({ length: n }, (_, si) =>
+            Array.from({ length: n }, (_, ti) =>
+              this.designedInstrument.fmDelays[enabledIndices[si]]?.[enabledIndices[ti]] ?? 0.001
+            )
+          );
+        }
+      }
+    }
     const vol = this.designedInstrument.volume ?? 1.0;
     const oct = this.designedInstrument.octave ?? 0;
     const instJson = JSON.stringify(cleanInst, null, 2);

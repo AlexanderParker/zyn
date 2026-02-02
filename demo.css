@@ -834,6 +834,139 @@ button.btn-info:hover:not(:disabled) {
 }
 
 /* =============================================
+   FM MATRIX VISUALIZER
+   ============================================= */
+.fm-matrix-grid {
+  margin-top: var(--space-2);
+}
+
+.fm-matrix-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px;
+  text-align: center;
+}
+
+.fm-matrix-cell {
+  font-size: 0.7rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+  padding: 4px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+/* =============================================
+   ROTARY KNOB CONTROL
+   ============================================= */
+.fm-knob-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.fm-knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  border: 2px solid var(--border-color);
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: border-color 0.15s ease;
+}
+
+.fm-knob:hover {
+  border-color: var(--accent-secondary);
+}
+
+.fm-knob.active {
+  cursor: grabbing;
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
+}
+
+.fm-knob-indicator {
+  position: absolute;
+  width: 2px;
+  height: 9px;
+  background: var(--accent-secondary);
+  left: 50%;
+  top: 2px;
+  transform-origin: 50% 12px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.fm-knob-wrapper {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.fm-knob-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.fm-knob-label {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.fm-knob-value {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  font-family: 'Consolas', 'Monaco', monospace;
+  text-align: center;
+  width: 32px;
+  padding: 1px 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.fm-knob-value:hover {
+  border-color: var(--border-color);
+}
+
+.fm-knob-value:focus {
+  background: var(--bg-input);
+  border-color: var(--accent-secondary);
+  color: var(--text-primary);
+}
+
+/* FM Matrix Editor in Designer */
+.fm-matrix-editor {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-2);
+  background: var(--bg-section);
+  border-radius: var(--radius-md);
+  justify-items: center;
+  align-items: center;
+}
+
+.fm-matrix-editor-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* =============================================
    PRESETS
    ============================================= */
 .preset-section {
@@ -1588,13 +1721,22 @@ label[tabindex]:focus-visible,
 
 .design-input {
   width: 72px;
-  padding: var(--space-1) var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-2);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: 0.8rem;
   font-family: 'Consolas', 'Monaco', monospace;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+}
+
+.design-input::-webkit-outer-spin-button,
+.design-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .design-input:focus {
@@ -1603,13 +1745,15 @@ label[tabindex]:focus-visible,
 }
 
 .design-select {
-  padding: var(--space-1) var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-2);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: 0.8rem;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .design-select:focus {
