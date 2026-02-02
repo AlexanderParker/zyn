@@ -1668,6 +1668,7 @@ const ZynDemo = {
     const finishSimilar = () => {
       clearInterval(this.findSimilarTimer);
       this.findSimilarTimer = null;
+      this.cancelFindSimilar = null;
       btn.textContent = "\u{1F50D} Find Similar";
       btn.classList.remove("btn-warning");
       btn.classList.add("btn-info");
@@ -1679,6 +1680,7 @@ const ZynDemo = {
         this.updateInstrumentAndPushState(bestSeed);
       }
     };
+    this.cancelFindSimilar = finishSimilar;
 
     const tick = () => {
       const elapsed = Date.now() - startTime;
@@ -2465,15 +2467,7 @@ const ZynDemo = {
     document.getElementById("retrySimilarButton").addEventListener("click", () => this.handleFindSimilar(true));
     document.getElementById("searchUntilSimilarButton").addEventListener("click", () => {
       if (this.findSimilarTimer) {
-        // Cancel active search
-        clearInterval(this.findSimilarTimer);
-        this.findSimilarTimer = null;
-        const btn = document.getElementById("findSimilarButton");
-        btn.textContent = "\u{1F50D} Find Similar";
-        btn.classList.remove("btn-warning");
-        btn.classList.add("btn-info");
-        document.getElementById("retrySimilarButton").style.display = "";
-        document.getElementById("searchUntilSimilarButton").textContent = "\uD83C\uDFAF Search Until";
+        if (this.cancelFindSimilar) this.cancelFindSimilar();
       } else {
         this.handleFindSimilar("threshold");
       }
@@ -3778,14 +3772,7 @@ const ZynDemo = {
     improveBtn.style.display = "none";
     improveBtn.addEventListener("click", () => {
       if (this.findSeedTimer) {
-        // Cancel active search
-        clearInterval(this.findSeedTimer);
-        this.findSeedTimer = null;
-        improveBtn.textContent = "\uD83D\uDD04 Find Improved";
-        const findBtn = document.getElementById("findSeedButton");
-        if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
-        const sub = document.getElementById("searchUntilSeedButton");
-        if (sub) sub.textContent = "\uD83C\uDFAF Search Until";
+        if (this.cancelFindSeed) this.cancelFindSeed();
       } else {
         this.handleFindSeed(true);
       }
@@ -3811,13 +3798,7 @@ const ZynDemo = {
     searchUntilBtn.title = "Search continuously until the threshold is met";
     searchUntilBtn.addEventListener("click", () => {
       if (this.findSeedTimer) {
-        // Cancel active search
-        clearInterval(this.findSeedTimer);
-        this.findSeedTimer = null;
-        searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
-        const findBtn = document.getElementById("findSeedButton");
-        if (findBtn) { findBtn.textContent = "\uD83D\uDD0D Find Seed"; findBtn.classList.remove("btn-warning"); findBtn.classList.add("btn-info"); findBtn.disabled = false; }
-        if (improveBtn) improveBtn.textContent = "\uD83D\uDD04 Find Improved";
+        if (this.cancelFindSeed) this.cancelFindSeed();
       } else {
         this.handleFindSeed("threshold");
       }
@@ -3967,6 +3948,7 @@ const ZynDemo = {
     this.writeDesignJson();
     // Reset find-seed state on any instrument edit
     if (this.findSeedTimer) { clearInterval(this.findSeedTimer); this.findSeedTimer = null; }
+    this.cancelFindSeed = null;
     this.findSeedBestScore = null;
     this.findSeedBestSeed = null;
     this.findSeedTarget = null;
@@ -4172,6 +4154,7 @@ const ZynDemo = {
     const finishSearch = (seed, score) => {
       clearInterval(this.findSeedTimer);
       this.findSeedTimer = null;
+      this.cancelFindSeed = null;
       this.findSeedBestScore = score;
       this.findSeedBestSeed = seed;
       this.persistFindSeedState();
@@ -4180,6 +4163,7 @@ const ZynDemo = {
       if (searchUntilBtn) searchUntilBtn.textContent = "\uD83C\uDFAF Search Until";
       this.showFindSeedResult(seed, score);
     };
+    this.cancelFindSeed = () => finishSearch(bestSeed, bestScore);
 
     const tick = () => {
       const elapsed = Date.now() - startTime;
