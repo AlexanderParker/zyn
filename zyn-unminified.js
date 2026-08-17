@@ -118,10 +118,13 @@ let Z = {
   randSample: () => Math.random() * 2 - 1,
   // Generate a distortion curve
   getDistCurve: (k) => {
-    let curve = new Float32Array(sampleRate);
+    // `sampleRate` as a bare global only exists in AudioWorkletGlobalScope, so
+    // this threw a ReferenceError in a Window context. Read it from the context.
+    let n = Z.sampleRate;
+    let curve = new Float32Array(n);
     let deg = Math.PI / 180;
-    for (let i = 0; i < Z.sampleRate; i++) {
-      let x = (i * 2) / Z.sampleRate - 1;
+    for (let i = 0; i < n; i++) {
+      let x = (i * 2) / n - 1;
       curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
     }
     return curve;
@@ -292,8 +295,18 @@ let Z = {
         } else {
           nPan.pan.setValueAtTime(layer.pan || 0, now);
         }
-        // Connect nodes: oscillator -> filter -> gain -> panner
-        osc.connect(nFilt);
+        // Connect nodes: oscillator -> [shaper] -> filter -> gain -> panner
+        // Shaping before the filter is deliberate: the filter then tames the
+        // harmonics the shaper adds, which keeps affected seeds from turning harsh.
+        if (cnf.dist) {
+          let nShape = Z.aC.createWaveShaper();
+          nShape.curve = Z.getDistCurve(cnf.dist.amount);
+          nShape.oversample = cnf.dist.oversample || "none";
+          osc.connect(nShape);
+          nShape.connect(nFilt);
+        } else {
+          osc.connect(nFilt);
+        }
         nFilt.connect(nGain);
         nGain.connect(nPan);
         // Create delay effect if specified (with dry/wet mix)
@@ -386,16 +399,6 @@ let Z = {
         }
       }
     });
-    // Apply distortion if specified
-    let dCurve = layer?.dist?.curve || null;
-    if (dCurve) {
-      nDist.curve = new Float32Array(dCurve);
-      nDist.oversample = layer.dist.oversample || "none";
-      nGains.forEach((nGain) => {
-        nGain.connect(nDist);
-      });
-      nDist.connect(Z.masterGain);
-    }
     // Start oscillators
     oscs.forEach((osc) => {
       osc.start(now);
@@ -457,6 +460,10 @@ let Z = {
   getInstrument: (seed) => {
     seed = parseInt(seed);
     let r = Z.m32(seed);
+    // Side stream for the distortion curve amount. Drawing it from `r` would
+    // shift every subsequent oscillator and change ~5% of all existing seeds
+    // structurally. Same technique as the FM matrix below (seed + 9999).
+    let dR = Z.m32(seed + 7777);
     let oscs = [];
     // Helper function to generate envelope parameters
     let gEnv = (t, v) => {
@@ -635,7 +642,9 @@ let Z = {
         dist:
           r() < 0.05
             ? {
-                curve: () => getDistCurve(r(500)),
+                // amount comes from the side stream; the r() test above and the
+                // r(3) draw below stay on the main stream, exactly where they were
+                amount: dR(500),
                 oversample: ["none", "2x", "4x"][Math.floor(r(3))],
               }
             : undefined,
