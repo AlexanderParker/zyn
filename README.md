@@ -101,6 +101,21 @@ for a lowpass is already a decibel value.
 Both default to zero and are exactly zero-sum at that setting, so a project
 that never calls this renders sample for sample what it rendered before.
 
+### Scheduling Ahead of Time
+
+`play` and `noteOn` take an optional AudioContext time, so a sequencer can
+queue notes in advance instead of firing them from a timer:
+
+```js
+let t = Z.aC.currentTime;
+Z.play(0, instrument, 1, t + 0.5);   // half a second from now
+Z.play(4, instrument, 1, t + 1.0);
+```
+
+This is what keeps a sequencer in time. `setTimeout` jitters by whole
+milliseconds and is throttled in background tabs, which a listener hears as a
+flam on every row; an AudioContext time is sample-accurate.
+
 ### Stop All
 
 To immediately stop all playing sounds with a smooth fade:
@@ -120,6 +135,7 @@ Z.stopAll();
 | `Z.noteOn(note, instrument, gain?)` | Start a sustained note. Returns a `voiceId`. |
 | `Z.noteOff(voiceId)` | Release a sustained note by its voice ID. |
 | `Z.stopAll()` | Stop all active voices with a quick fade-out. |
+| `Z.play(note, instrument, gain?, when?)` / `Z.noteOn(..., when?)` | `when` is an AudioContext time to start at. Omit it for "now". |
 | `Z.setFilterMod(semitones?, dB?)` | Live filter modulation. Transposes the cutoff of every oscillator's filter and adds to its resonance, on notes already sounding. Both default to 0, which is a no-op. |
 | `Z.instrumentTypes` | Array of type names: `["pad", "lead", "bass", "key", "pluck", "bell", "string", "drum", "perc", "fx"]` |
 

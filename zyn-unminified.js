@@ -210,7 +210,14 @@ let Z = {
   },
   // Render audio for given notes and layer
   // Returns voice ID if sustained mode, null otherwise
-  render: (noteOffset, notes, layer, sustained = false) => {
+  // `when` is an AudioContext time to start at, for scheduling ahead of the
+  // clock. Everything below already derives from `now`, so one substitution
+  // makes the whole graph land at the requested moment -- which is what a
+  // sequencer needs: setTimeout jitters by milliseconds, and a tracker row
+  // landing a few milliseconds late is audible as a flam.
+  //
+  // Omitted, it means "now", so every existing caller is unaffected.
+  render: (noteOffset, notes, layer, sustained = false, when = null) => {
     if (notes.length == 0) return null;
     // Warm up audio context on first render
     Z.warmUp();
@@ -225,7 +232,7 @@ let Z = {
     let filters = [];
     let voiceGain = 1.0 / (notes.length * layer.instrument.oscs.length);
     let buf = 0; //0.005;
-    let now = Z.aC.currentTime + buf;
+    let now = when !== null ? when : Z.aC.currentTime + buf;
     let finalStopTime = 0;
     let SR = Z.sampleRate;
     // Create and connect oscillators, filters, and effects for each note
@@ -763,25 +770,26 @@ let Z = {
       oscs: oscs,
     };
   },
-  // Play a single note with a given instrument (one-shot, uses full ADSR)
-  play: (note, instrument, gain = 1) => {
+  // Play a single note with a given instrument (one-shot, uses full ADSR).
+  // `when` is an AudioContext time; omit it for "now".
+  play: (note, instrument, gain = 1, when = null) => {
     let layer = {
       rootNote: 0,
       gain: 0.5 * gain,
       pan: 0,
       instrument: instrument,
     };
-    Z.render(0, [note], layer, false);
+    Z.render(0, [note], layer, false, when);
   },
   // Start a sustained note (returns voiceId for noteOff)
-  noteOn: (note, instrument, gain = 1) => {
+  noteOn: (note, instrument, gain = 1, when = null) => {
     let layer = {
       rootNote: 0,
       gain: 0.5 * gain,
       pan: 0,
       instrument: instrument,
     };
-    return Z.render(0, [note], layer, true);
+    return Z.render(0, [note], layer, true, when);
   },
   // Instrument type names for reference
   instrumentTypes: ["pad", "lead", "bass", "key", "pluck", "bell", "string", "drum", "perc", "fx"],
