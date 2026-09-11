@@ -102,23 +102,46 @@ let Z = {
     Z.warmedUp = true;
     Z.ensureFilterMod();
   },
-  // Clean up old effect nodes to prevent memory exhaustion
+  // How many sounding voices run through each effect node. A node with a
+  // count is carrying audio and must not be touched; one without is idle
+  // and can go when the cache is over its limit.
+  fxUse: {},
+  retainFx: (keys) => {
+    keys.forEach((k) => { Z.fxUse[k] = (Z.fxUse[k] || 0) + 1; });
+  },
+  releaseFx: (keys) => {
+    keys.forEach((k) => {
+      if (!Z.fxUse[k]) return;
+      if (--Z.fxUse[k] === 0) delete Z.fxUse[k];
+    });
+  },
+  // Clean up old effect nodes to prevent memory exhaustion.
+  //
+  // Only idle nodes are removed. This used to take the oldest half
+  // regardless, which cut the output path from under notes that were still
+  // sounding: a song with eight instruments sat right at the limit and fell
+  // silent every few bars. And without any removal at all, every new seed
+  // that sounded left a convolver and a delay loop wired into the master
+  // bus for good, each processing silence forever until the audio thread
+  // could not keep up.
   cleanupFxNodes: () => {
     let keys = Object.keys(Z.fxNodes);
-    if (keys.length > Z.maxFxNodes) {
-      // Remove oldest half of nodes
-      let toRemove = keys.slice(0, Math.floor(keys.length / 2));
-      toRemove.forEach((key) => {
-        let node = Z.fxNodes[key];
-        if (node && node.disconnect) {
-          try {
-            node.disconnect();
-          } catch (e) {
-            // Node may already be disconnected
-          }
+    if (keys.length <= Z.maxFxNodes) return;
+    // Back down to half the limit, oldest idle nodes first.
+    let excess = keys.length - Math.floor(Z.maxFxNodes / 2);
+    for (let key of keys) {
+      if (excess <= 0) break;
+      if (Z.fxUse[key]) continue;
+      let node = Z.fxNodes[key];
+      if (node && node.disconnect) {
+        try {
+          node.disconnect();
+        } catch (e) {
+          // Node may already be disconnected
         }
-        delete Z.fxNodes[key];
-      });
+      }
+      delete Z.fxNodes[key];
+      excess--;
     }
   },
   // Track active voices for note-off capability
@@ -148,7 +171,8 @@ let Z = {
           try { node.stop(stopTime); } catch (e) {}
         });
         let dying = voice.filters;
-        setTimeout(() => Z.releaseFilterMod(dying),
+        let dyingFx = voice.fxKeys;
+        setTimeout(() => { Z.releaseFilterMod(dying); Z.releaseFx(dyingFx); },
                    Math.max(0, stopTime - now + 0.05) * 1000);
       }
     });
@@ -230,6 +254,9 @@ let Z = {
     // Every filter this render creates, so the modulation buses can be
     // detached from them once the note is done with.
     let filters = [];
+    // Every effect node this render routes through, so they are known to be
+    // in use until the note is done with.
+    let fxKeys = [];
     let voiceGain = 1.0 / (notes.length * layer.instrument.oscs.length);
     let buf = 0; //0.005;
     let now = when !== null ? when : Z.aC.currentTime + buf;
@@ -384,6 +411,7 @@ let Z = {
         let nDel, nDry, nVerb;
         if (!cnf?.fx?.del) {
           let nDelID = Z.id({ ...cnf, d: "0" });
+          fxKeys.push(nDelID);
           nDel = Z.fxNodes[nDelID];
           if (!nDel) {
             nDel = Z.aC.createGain();
@@ -393,6 +421,7 @@ let Z = {
         } else {
           let dC = cnf.fx.del;
           let dId = Z.id(dC);
+          fxKeys.push(dId);
           nDel = Z.fxNodes[dId];
           if (!nDel) {
             nDel = Z.aC.createDelay();
@@ -405,6 +434,7 @@ let Z = {
           }
           // Create dry signal path with mix level
           let dryId = Z.id({ ...dC, dry: 1 });
+          fxKeys.push(dryId);
           nDry = Z.fxNodes[dryId];
           if (!nDry) {
             nDry = Z.aC.createGain();
@@ -417,6 +447,7 @@ let Z = {
         // Create reverb effect if specified
         if (!cnf?.fx?.verb) {
           let noId = Z.id({ ...cnf, r: "0" });
+          fxKeys.push(noId);
           nVerb = Z.fxNodes[noId];
           if (!nVerb) {
             nVerb = Z.aC.createGain();
@@ -425,6 +456,7 @@ let Z = {
         } else {
           let rC = cnf.fx.verb;
           let rId = Z.id(rC);
+          fxKeys.push(rId);
           nVerb = Z.fxNodes[rId];
           if (!nVerb) {
             nVerb = Z.aC.createConvolver();
@@ -482,12 +514,14 @@ let Z = {
       allNodes.forEach((node) => node.start(now));
       // Generate voice ID and store for later noteOff
       let voiceId = `${Date.now()}_${Math.random()}`;
-      Z.activeVoices[voiceId] = { oscs, gains, allNodes, filters };
+      Z.retainFx(fxKeys);
+      Z.activeVoices[voiceId] = { oscs, gains, allNodes, filters, fxKeys };
       return voiceId;
     }
     // A one-shot has no noteOff to hang the cleanup off, so it is timed from
     // the stop time the envelopes already produced, with a margin.
-    setTimeout(() => Z.releaseFilterMod(filters),
+    Z.retainFx(fxKeys);
+    setTimeout(() => { Z.releaseFilterMod(filters); Z.releaseFx(fxKeys); },
                Math.max(0, finalStopTime - Z.aC.currentTime + 0.25) * 1000);
     return null;
   },
@@ -540,7 +574,7 @@ let Z = {
     voice.allNodes.forEach((node) => {
       try { node.stop(stopTime); } catch (e) {}
     });
-    setTimeout(() => Z.releaseFilterMod(voice.filters),
+    setTimeout(() => { Z.releaseFilterMod(voice.filters); Z.releaseFx(voice.fxKeys); },
                Math.max(0, stopTime - now + 0.05) * 1000);
     delete Z.activeVoices[voiceId];
   },
