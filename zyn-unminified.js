@@ -106,8 +106,14 @@ let Z = {
   // count is carrying audio and must not be touched; one without is idle
   // and can go when the cache is over its limit.
   fxUse: {},
+  // When each node was last routed through, as a running count of renders.
+  // Object.keys does not return integer-like keys in insertion order, so
+  // "oldest first" has to be tracked rather than assumed.
+  fxLast: {},
+  fxClock: 0,
   retainFx: (keys) => {
-    keys.forEach((k) => { Z.fxUse[k] = (Z.fxUse[k] || 0) + 1; });
+    Z.fxClock++;
+    keys.forEach((k) => { Z.fxUse[k] = (Z.fxUse[k] || 0) + 1; Z.fxLast[k] = Z.fxClock; });
   },
   releaseFx: (keys) => {
     keys.forEach((k) => {
@@ -127,11 +133,14 @@ let Z = {
   cleanupFxNodes: () => {
     let keys = Object.keys(Z.fxNodes);
     if (keys.length <= Z.maxFxNodes) return;
-    // Back down to half the limit, oldest idle nodes first.
-    let excess = keys.length - Math.floor(Z.maxFxNodes / 2);
-    for (let key of keys) {
+    // Back down to the limit, least recently used idle nodes first. The
+    // instruments a song is playing are used every bar and stay; the ones
+    // rolled past are never used again and go.
+    let idle = keys.filter((k) => !Z.fxUse[k]);
+    idle.sort((a, b) => (Z.fxLast[a] || 0) - (Z.fxLast[b] || 0));
+    let excess = keys.length - Z.maxFxNodes;
+    for (let key of idle) {
       if (excess <= 0) break;
-      if (Z.fxUse[key]) continue;
       let node = Z.fxNodes[key];
       if (node && node.disconnect) {
         try {
@@ -141,6 +150,7 @@ let Z = {
         }
       }
       delete Z.fxNodes[key];
+      delete Z.fxLast[key];
       excess--;
     }
   },
