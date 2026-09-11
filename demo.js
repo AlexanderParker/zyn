@@ -2261,9 +2261,93 @@ const ZynDemo = {
     }
   },
 
+  // True only when the focused element is something you TYPE into.
+  //
+  // It used to be true for any <input>, which included every slider on the
+  // page: touching the volume slider stood the whole QWERTY keyboard down
+  // until you clicked somewhere else, with nothing to say why. A range, a
+  // checkbox and a button take focus but consume no letters.
   isTextInputActive() {
-    const tag = document.activeElement.tagName;
-    return tag === "INPUT" || tag === "TEXTAREA";
+    const el = document.activeElement;
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === "TEXTAREA") return true;
+    if (tag !== "INPUT") return false;
+    const typed = ["text", "number", "search", "email", "password", "tel", "url", "date", "time"];
+    return typed.includes((el.getAttribute("type") || "text").toLowerCase());
+  },
+
+  // A rotary control built on a <div>.
+  //
+  // Drag vertically to change, shift for fine, wheel to step, double-click to
+  // recentre, arrows and Home when focused. Not an <input type="range">: a
+  // real input takes keyboard focus and would put the note keys out of action
+  // for as long as it held it, which is exactly the complaint that made these
+  // knobs rather than sliders.
+  setupKnob(id, opts) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const { min, max, step = 1, unit = "", name = "", onChange } = opts;
+    const dial = el.querySelector(".knob-dial");
+    const label = el.querySelector(".knob-label");
+    let value = 0;
+
+    const render = () => {
+      // 270 degrees of travel, centred, which is the span a hand can cover in
+      // one movement without letting go.
+      const t = (value - min) / (max - min);
+      dial.style.setProperty("--knob-angle", `${-135 + t * 270}deg`);
+      label.textContent = `${name} ${value > 0 ? "+" : ""}${value}${unit}`;
+      el.setAttribute("aria-valuenow", String(value));
+      el.dataset.live = value === 0 ? "0" : "1";
+    };
+
+    const set = (v) => {
+      const next = Math.max(min, Math.min(max, Math.round(v / step) * step));
+      if (next === value) return;
+      value = next;
+      render();
+      if (onChange) onChange(value);
+    };
+
+    let dragFrom = 0, dragStart = 0;
+    el.addEventListener("pointerdown", (e) => {
+      // Focus follows the click for keyboard users, but the note keys keep
+      // working because this is not an input -- see isTextInputActive.
+      el.setPointerCapture(e.pointerId);
+      dragFrom = e.clientY;
+      dragStart = value;
+      e.preventDefault();
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (!el.hasPointerCapture(e.pointerId)) return;
+      // 150 px of travel covers the range; shift gives a tenth of that.
+      const span = (max - min) * (e.shiftKey ? 0.1 : 1);
+      set(dragStart + ((dragFrom - e.clientY) * span) / 150);
+    });
+    const release = (e) => {
+      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    };
+    el.addEventListener("pointerup", release);
+    el.addEventListener("pointercancel", release);
+    el.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      set(value + (e.deltaY < 0 ? step : -step) * (e.shiftKey ? 1 : 5));
+    }, { passive: false });
+    // A sweep you cannot get back to centre is a sweep you daren't use.
+    el.addEventListener("dblclick", () => set(0));
+    el.addEventListener("keydown", (e) => {
+      const big = e.shiftKey ? 1 : 5;
+      if (e.key === "ArrowUp" || e.key === "ArrowRight") set(value + step * big);
+      else if (e.key === "ArrowDown" || e.key === "ArrowLeft") set(value - step * big);
+      else if (e.key === "Home") set(0);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    render();
   },
 
   setupCollapsible() {
@@ -2560,21 +2644,16 @@ const ZynDemo = {
     // notes that are already sounding, so hold a chord down and sweep them.
     // Deliberately not saved with a preset: they are a performance control,
     // not part of what a seed is.
-    const applyFilterMod = () => {
-      const cutoff = parseInt(document.getElementById("filterCutoffMod").value, 10);
-      const res = parseInt(document.getElementById("filterResMod").value, 10);
-      document.getElementById("filterCutoffModLabel").textContent = `Cutoff: ${cutoff > 0 ? "+" : ""}${cutoff} st`;
-      document.getElementById("filterResModLabel").textContent = `Resonance: ${res > 0 ? "+" : ""}${res} dB`;
-      Z.setFilterMod(cutoff, res);
-    };
-    ["filterCutoffMod", "filterResMod"].forEach((id) => {
-      const el = document.getElementById(id);
-      el.addEventListener("input", applyFilterMod);
-      // A sweep you cannot get back to centre is a sweep you daren't use.
-      el.addEventListener("dblclick", () => {
-        el.value = 0;
-        applyFilterMod();
-      });
+    this.filterMod = { cutoff: 0, res: 0 };
+    const applyFilterMod = () => Z.setFilterMod(this.filterMod.cutoff, this.filterMod.res);
+
+    this.setupKnob("filterCutoffMod", {
+      min: -48, max: 48, step: 1, unit: " st", name: "Cutoff",
+      onChange: (v) => { this.filterMod.cutoff = v; applyFilterMod(); },
+    });
+    this.setupKnob("filterResMod", {
+      min: -30, max: 30, step: 1, unit: " dB", name: "Res",
+      onChange: (v) => { this.filterMod.res = v; applyFilterMod(); },
     });
     document.getElementById("octaveSelect").addEventListener("change", () => {
       if (this.channels[this.activeChannel]) this.syncActiveChannel();

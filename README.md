@@ -27,7 +27,7 @@ Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=
 - MIDI pedal support (sustain, sostenuto, soft/una corda)
 - Octave selector (+/- 3 octaves, Page Up/Down keys, also applies to MIDI)
 - Volume control (0-500%)
-- Live cutoff and resonance sliders that reach notes already sounding (double-click either to recentre)
+- Live cutoff and resonance knobs that reach notes already sounding (drag, wheel, or arrow keys; double-click to recentre)
 - Instrument type filter with random generation (type numbers shown in UI)
 - Default presets included on first load, covering all 10 instrument types
 - Preset system with save/load/rename/delete (stored in localStorage)

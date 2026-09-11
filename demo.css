@@ -1915,3 +1915,69 @@ input.design-input-flat::-webkit-inner-spin-button {
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* =============================================
+   KNOB
+   =============================================
+   A rotary control for values that read as an offset from a centre rather
+   than a level: cutoff and resonance sit at zero by default and go both
+   ways, which a left-anchored slider draws badly.
+
+   Deliberately a <div> and not an <input type="range">. Any real input takes
+   keyboard focus, and the QWERTY note handler stands down while an input is
+   focused -- so touching a slider silently killed the keyboard until you
+   clicked somewhere else. */
+.knob {
+  --knob-size: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: ns-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.knob-dial {
+  position: relative;
+  width: var(--knob-size);
+  height: var(--knob-size);
+  border-radius: 50%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
+}
+
+/* The pointer. Rotated by the script through --knob-angle. */
+.knob-dial::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 2px;
+  height: 38%;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+  transform-origin: 50% 100%;
+  transform: rotate(var(--knob-angle, 0deg));
+}
+
+.knob[data-live="1"] .knob-dial {
+  border-color: var(--accent-primary);
+}
+.knob[data-live="1"] .knob-dial::after {
+  background: var(--accent-primary);
+}
+
+.knob:focus-visible .knob-dial {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.knob-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

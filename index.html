@@ -40,13 +40,15 @@
             <label for="mainVolume" id="mainVolumeLabel">Volume: 100%</label>
             <input type="range" id="mainVolume" min="0" max="500" value="100" style="width: 140px;" title="Master volume (0-500%)" />
           </div>
-          <div class="control-group" style="flex: 1;">
-            <label for="filterCutoffMod" id="filterCutoffModLabel">Cutoff: 0 st</label>
-            <input type="range" id="filterCutoffMod" min="-48" max="48" step="1" value="0" style="width: 120px;" title="Transposes every oscillator's filter cutoff, on notes already sounding (double-click to reset)" />
-          </div>
-          <div class="control-group" style="flex: 1;">
-            <label for="filterResMod" id="filterResModLabel">Resonance: 0 dB</label>
-            <input type="range" id="filterResMod" min="-30" max="30" step="1" value="0" style="width: 120px;" title="Adds to every oscillator's filter resonance, on notes already sounding (double-click to reset)" />
+          <div class="control-group">
+            <div class="knob" id="filterCutoffMod" role="slider" tabindex="0" aria-valuemin="-48" aria-valuemax="48" aria-valuenow="0" aria-label="Filter cutoff" title="Transposes every oscillator's filter cutoff, on notes already sounding. Drag to change, double-click to recentre.">
+              <div class="knob-dial"></div>
+              <span class="knob-label" id="filterCutoffModLabel">Cutoff 0</span>
+            </div>
+            <div class="knob" id="filterResMod" role="slider" tabindex="0" aria-valuemin="-30" aria-valuemax="30" aria-valuenow="0" aria-label="Filter resonance" title="Adds to every oscillator's filter resonance, on notes already sounding. Drag to change, double-click to recentre.">
+              <div class="knob-dial"></div>
+              <span class="knob-label" id="filterResModLabel">Res 0</span>
+            </div>
           </div>
           <div class="control-group">
             <button id="instrumentToggleBtn" class="btn-secondary" title="Playing generated instrument — click to switch to designed">&#127929; Generator</button>
