@@ -504,25 +504,36 @@ let Z = {
     // Hold at sustain level (don't schedule release)
     return t + A[0] + D[0] + S[0];
   },
-  // Release a sustained note by voice ID
-  noteOff: (voiceId) => {
+  // Release a sustained note by voice ID.
+  // `when` is an AudioContext time, like render's: a sequencer that queues
+  // notes ahead of the clock has to queue their ends ahead too, or every
+  // note is cut short by exactly the lookahead. Omitted, it means now.
+  noteOff: (voiceId, when = null) => {
     let voice = Z.activeVoices[voiceId];
     if (!voice) return;
     let now = Z.aC.currentTime;
+    let at = when !== null ? Math.max(when, now) : now;
     let maxRelease = 0.015;
     // Apply release envelope to all gain nodes
     voice.gains.forEach(({ gain, env }) => {
       // Use instrument's release time, with small minimum to prevent clicks
       let r = Math.max(env.R[0], 0.015);
-      gain.gain.cancelScheduledValues(now);
-      // Get current value and ramp to 0
-      let currentVal = gain.gain.value;
-      gain.gain.setValueAtTime(currentVal, now);
-      gain.gain.linearRampToValueAtTime(0, now + r);
+      let p = gain.gain;
+      // Hold whatever the envelope has reached at `at` and ramp down from
+      // there. cancelAndHoldAtTime is the only way to read a value in the
+      // future; where it is missing, the value now is the same thing when
+      // `at` is now, and the nearest thing available when it is not.
+      if (p.cancelAndHoldAtTime) {
+        p.cancelAndHoldAtTime(at);
+      } else {
+        p.cancelScheduledValues(at);
+        p.setValueAtTime(p.value, at);
+      }
+      p.linearRampToValueAtTime(0, at + r);
       maxRelease = Math.max(maxRelease, r);
     });
     // Stop all oscillators after release completes
-    let stopTime = now + maxRelease + 0.05;
+    let stopTime = at + maxRelease + 0.05;
     voice.oscs.forEach((osc) => {
       try { osc.stop(stopTime); } catch (e) {}
     });
