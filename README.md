@@ -155,6 +155,18 @@ I'd love to see what people make with this. Feel free to share your creations an
 
 - Your demo here?
 
+## How This Was Built
+
+The synth core -- the seeded generator and the Web Audio graph it drives -- was
+written by hand. From a certain point I started using AI assistance (Claude) to
+extend the library and to build most of the demo interface, and that is how the
+bulk of this page and a good deal of the later library work came about.
+
+Everything AI-written here was reviewed and directed by me, and the parts that
+decide what a seed sounds like are pinned by tests rather than by trust:
+`test/stream-parity.mjs` fingerprints 5000 seeds so that no change can quietly
+alter an existing instrument.
+
 ## Bugs and Improvements
 
 PRs and suggestions are welcome as always, though I'm not providing any official support I'll definitely try to address things as I can.
