@@ -2556,6 +2556,26 @@ const ZynDemo = {
       }
       if (this.channels[this.activeChannel]) this.syncActiveChannel();
     });
+    // Live filter modulation. Unlike everything else on this page these reach
+    // notes that are already sounding, so hold a chord down and sweep them.
+    // Deliberately not saved with a preset: they are a performance control,
+    // not part of what a seed is.
+    const applyFilterMod = () => {
+      const cutoff = parseInt(document.getElementById("filterCutoffMod").value, 10);
+      const res = parseInt(document.getElementById("filterResMod").value, 10);
+      document.getElementById("filterCutoffModLabel").textContent = `Cutoff: ${cutoff > 0 ? "+" : ""}${cutoff} st`;
+      document.getElementById("filterResModLabel").textContent = `Resonance: ${res > 0 ? "+" : ""}${res} dB`;
+      Z.setFilterMod(cutoff, res);
+    };
+    ["filterCutoffMod", "filterResMod"].forEach((id) => {
+      const el = document.getElementById(id);
+      el.addEventListener("input", applyFilterMod);
+      // A sweep you cannot get back to centre is a sweep you daren't use.
+      el.addEventListener("dblclick", () => {
+        el.value = 0;
+        applyFilterMod();
+      });
+    });
     document.getElementById("octaveSelect").addEventListener("change", () => {
       if (this.channels[this.activeChannel]) this.syncActiveChannel();
     });

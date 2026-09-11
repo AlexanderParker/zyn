@@ -12,6 +12,7 @@ It could be useful for small code-golf projects, js13k etc. It's not designed to
 - **Per-oscillator effects**: delay with feedback, convolution reverb
 - **Modulation**: gain/filter/pitch LFOs, FM synthesis, pitch envelopes
 - **Dynamics compressor** on master output to prevent clipping with polyphony
+- **Live filter modulation**: cutoff and resonance that reach notes already sounding, unlike everything else, which is scheduled at note-on
 - **Stop all** playback with smooth fade-out
 - **Audio warm-up** to eliminate first-play delay from browser autoplay policies
 - **Automatic cleanup** of cached effect nodes to prevent memory exhaustion
@@ -26,6 +27,7 @@ Check out [the demo page](https://alexanderparker.github.io/zyn/?instrumentSeed=
 - MIDI pedal support (sustain, sostenuto, soft/una corda)
 - Octave selector (+/- 3 octaves, Page Up/Down keys, also applies to MIDI)
 - Volume control (0-500%)
+- Live cutoff and resonance sliders that reach notes already sounding (double-click either to recentre)
 - Instrument type filter with random generation (type numbers shown in UI)
 - Default presets included on first load, covering all 10 instrument types
 - Preset system with save/load/rename/delete (stored in localStorage)
@@ -72,6 +74,33 @@ let voiceId = Z.noteOn(0, instrument, 1.0);
 Z.noteOff(voiceId);
 ```
 
+### Live Filter Modulation
+
+Everything else about a note is scheduled the moment it starts: a seed's filter
+envelope is written into the AudioParam at note-on, so there is no way to play
+an instrument, only to trigger it. `setFilterMod` is the exception. It reaches
+every sounding note and every note started afterwards, until it is set again.
+
+```js
+// Open the filter two octaves and add 12 dB of resonance, while holding a chord.
+Z.setFilterMod(24, 12);
+
+// Back to the seed's own filter.
+Z.setFilterMod(0, 0);
+```
+
+Cutoff is in **semitones**, not hertz, because it drives
+`BiquadFilterNode.detune`: the computed frequency is `frequency * 2^(detune/1200)`,
+so the modulation is multiplicative and sounds the same wherever the envelope
+has put the cutoff. An additive offset in hertz would be inaudible on a cutoff
+sitting at 15 kHz and catastrophic on one at 200 Hz.
+
+Resonance is in **decibels**, added to the Q envelope, because Web Audio's `Q`
+for a lowpass is already a decibel value.
+
+Both default to zero and are exactly zero-sum at that setting, so a project
+that never calls this renders sample for sample what it rendered before.
+
 ### Stop All
 
 To immediately stop all playing sounds with a smooth fade:
@@ -91,6 +120,7 @@ Z.stopAll();
 | `Z.noteOn(note, instrument, gain?)` | Start a sustained note. Returns a `voiceId`. |
 | `Z.noteOff(voiceId)` | Release a sustained note by its voice ID. |
 | `Z.stopAll()` | Stop all active voices with a quick fade-out. |
+| `Z.setFilterMod(semitones?, dB?)` | Live filter modulation. Transposes the cutoff of every oscillator's filter and adds to its resonance, on notes already sounding. Both default to 0, which is a no-op. |
 | `Z.instrumentTypes` | Array of type names: `["pad", "lead", "bass", "key", "pluck", "bell", "string", "drum", "perc", "fx"]` |
 
 ## Instrument Types

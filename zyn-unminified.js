@@ -23,6 +23,10 @@ let Z = {
   // Initialize AudioContext
   init: () => {
     Z.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Nodes belong to a context; a re-init leaves the old pair pointing at a
+    // context nothing else uses, so they are rebuilt with everything else.
+    Z.cutoffMod = null;
+    Z.resMod = null;
     Z.masterGain = Z.ctx.createGain();
     // Insert compressor between master gain and destination to prevent clipping
     Z.compressor = Z.ctx.createDynamicsCompressor();
@@ -33,6 +37,53 @@ let Z = {
     Z.compressor.release.value = 0.15;
     Z.masterGain.connect(Z.compressor);
     Z.compressor.connect(Z.ctx.destination);
+  },
+  // Live filter modulation, in the units the two AudioParams it drives use:
+  // cutoff in cents of detune (multiplicative -- the computed frequency of a
+  // BiquadFilterNode is frequency * 2^(detune/1200)) and resonance in dB,
+  // which is what Q already is for a lowpass.
+  //
+  // These exist because everything else about a note is scheduled at note-on.
+  // A seed's filter envelope is written into the AudioParam the moment the
+  // note starts, so there is no way to play the instrument -- only to trigger
+  // it. Two constant sources connected into every filter give the one thing
+  // that changes a note that is already sounding.
+  cutoffMod: null,
+  resMod: null,
+  // Matches the plugin port's voice smoother, so the two sweep alike.
+  modSmoothing: 0.012,
+  // Set the live filter modulation. Applies to every sounding note and to
+  // every note started afterwards, until it is set again.
+  setFilterMod: (cutoffSemitones = 0, resonanceDb = 0) => {
+    if (!Z.ctx) Z.init();
+    Z.ensureFilterMod();
+    let now = Z.aC.currentTime;
+    // setTargetAtTime rather than a step: a filter coefficient jumped between
+    // render quanta clicks.
+    Z.cutoffMod.offset.setTargetAtTime(cutoffSemitones * 100, now, Z.modSmoothing);
+    Z.resMod.offset.setTargetAtTime(resonanceDb, now, Z.modSmoothing);
+  },
+  // Creates the two constant sources on first use. Started at zero, so a
+  // caller that never touches them changes nothing: summing 0 into detune and
+  // into Q leaves both exactly where the envelope put them.
+  ensureFilterMod: () => {
+    if (Z.cutoffMod) return;
+    Z.cutoffMod = Z.aC.createConstantSource();
+    Z.cutoffMod.offset.value = 0;
+    Z.cutoffMod.start();
+    Z.resMod = Z.aC.createConstantSource();
+    Z.resMod.offset.value = 0;
+    Z.resMod.start();
+  },
+  // Drop a note's filters off the modulation buses once it has finished. A
+  // connection from a running source keeps its destination alive, so leaving
+  // these attached would retain every filter node ever created.
+  releaseFilterMod: (filters) => {
+    if (!filters || !Z.cutoffMod) return;
+    filters.forEach((f) => {
+      try { Z.cutoffMod.disconnect(f.detune); } catch (e) {}
+      try { Z.resMod.disconnect(f.Q); } catch (e) {}
+    });
   },
   // Warm up the audio context to eliminate first-play delay
   warmUp: () => {
@@ -49,6 +100,7 @@ let Z = {
     source.connect(Z.ctx.destination);
     source.start(0);
     Z.warmedUp = true;
+    Z.ensureFilterMod();
   },
   // Clean up old effect nodes to prevent memory exhaustion
   cleanupFxNodes: () => {
@@ -95,6 +147,9 @@ let Z = {
         voice.allNodes.forEach((node) => {
           try { node.stop(stopTime); } catch (e) {}
         });
+        let dying = voice.filters;
+        setTimeout(() => Z.releaseFilterMod(dying),
+                   Math.max(0, stopTime - now + 0.05) * 1000);
       }
     });
     Z.activeVoices = {};
@@ -165,6 +220,9 @@ let Z = {
     let oscs = [];
     let gains = [];
     let allNodes = [];
+    // Every filter this render creates, so the modulation buses can be
+    // detached from them once the note is done with.
+    let filters = [];
     let voiceGain = 1.0 / (notes.length * layer.instrument.oscs.length);
     let buf = 0; //0.005;
     let now = Z.aC.currentTime + buf;
@@ -226,6 +284,12 @@ let Z = {
         // Create filter and apply ADSR envelope
         let nFilt = Z.aC.createBiquadFilter();
         nFilt.Q.value = cnf.filterQ || 0;
+        // Live modulation rides on top of whatever the envelope schedules:
+        // connected inputs SUM with an AudioParam's automation, and detune is
+        // applied multiplicatively to the result.
+        Z.cutoffMod.connect(nFilt.detune);
+        Z.resMod.connect(nFilt.Q);
+        filters.push(nFilt);
         if (sustained) {
           Z.adsrSustain(nFilt.frequency, now, cnf.adsrFilter, 20000);
           Z.adsrSustain(nFilt.Q, now, cnf.adsrFilterQ, 30);
@@ -411,9 +475,13 @@ let Z = {
       allNodes.forEach((node) => node.start(now));
       // Generate voice ID and store for later noteOff
       let voiceId = `${Date.now()}_${Math.random()}`;
-      Z.activeVoices[voiceId] = { oscs, gains, allNodes };
+      Z.activeVoices[voiceId] = { oscs, gains, allNodes, filters };
       return voiceId;
     }
+    // A one-shot has no noteOff to hang the cleanup off, so it is timed from
+    // the stop time the envelopes already produced, with a margin.
+    setTimeout(() => Z.releaseFilterMod(filters),
+               Math.max(0, finalStopTime - Z.aC.currentTime + 0.25) * 1000);
     return null;
   },
   // Apply ADSR envelope for sustained notes (attack -> decay -> sustain, hold at sustain)
@@ -454,6 +522,8 @@ let Z = {
     voice.allNodes.forEach((node) => {
       try { node.stop(stopTime); } catch (e) {}
     });
+    setTimeout(() => Z.releaseFilterMod(voice.filters),
+               Math.max(0, stopTime - now + 0.05) * 1000);
     delete Z.activeVoices[voiceId];
   },
   // Generate a random instrument based on a seed
