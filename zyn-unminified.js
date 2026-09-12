@@ -242,6 +242,88 @@ let Z = {
     lr(R[1] * max, tEnd);
     return tEnd;
   },
+  // The shared effect nodes an oscillator config routes through -- its
+  // delay, dry path and reverb, or the plain gains standing in for them --
+  // looked up in the cache or built, and wired to the master bus. Pushes
+  // their keys onto fxKeys so the caller can hold them for a voice.
+  fxChain: (cnf, fxKeys) => {
+    let SR = Z.sampleRate;
+    let nDel, nDry, nVerb;
+    if (!cnf?.fx?.del) {
+      let nDelID = Z.id({ ...cnf, d: "0" });
+      fxKeys.push(nDelID);
+      nDel = Z.fxNodes[nDelID];
+      if (!nDel) {
+        nDel = Z.aC.createGain();
+        Z.fxNodes[nDelID] = nDel; // Store the same node we use
+      }
+    } else {
+      let dC = cnf.fx.del;
+      let dId = Z.id(dC);
+      fxKeys.push(dId);
+      nDel = Z.fxNodes[dId];
+      if (!nDel) {
+        nDel = Z.aC.createDelay();
+        nDel.delayTime.value = dC.time;
+        let dF = Z.aC.createGain();
+        dF.gain.value = dC.feedback;
+        nDel.connect(dF);
+        dF.connect(nDel);
+        Z.fxNodes[dId] = nDel;
+      }
+      // Create dry signal path with mix level
+      let dryId = Z.id({ ...dC, dry: 1 });
+      fxKeys.push(dryId);
+      nDry = Z.fxNodes[dryId];
+      if (!nDry) {
+        nDry = Z.aC.createGain();
+        nDry.gain.value = dC.mix ?? 1; // Default mix=1 (full dry signal)
+        Z.fxNodes[dryId] = nDry;
+      }
+    }
+    // Create reverb effect if specified
+    if (!cnf?.fx?.verb) {
+      let noId = Z.id({ ...cnf, r: "0" });
+      fxKeys.push(noId);
+      nVerb = Z.fxNodes[noId];
+      if (!nVerb) {
+        nVerb = Z.aC.createGain();
+        Z.fxNodes[noId] = nVerb; // Store the same node we use
+      }
+    } else {
+      let rC = cnf.fx.verb;
+      let rId = Z.id(rC);
+      fxKeys.push(rId);
+      nVerb = Z.fxNodes[rId];
+      if (!nVerb) {
+        nVerb = Z.aC.createConvolver();
+        let length = SR * rC.duration;
+        let imp = Z.aC.createBuffer(2, length, SR);
+        let impL = imp.getChannelData(0);
+        let impR = imp.getChannelData(1);
+        for (let i = 0; i < length; i++) {
+          impL[i] = impR[i] = Z.randSample() * Math.pow(1 - i / length, rC.decay);
+        }
+        nVerb.buffer = imp;
+        Z.fxNodes[rId] = nVerb; // Store the same node we use
+      }
+    }
+    // Connect Delay -> Reverb -> Output (via master gain)
+    nDel.connect(nVerb);
+    if (nDry) nDry.connect(nVerb); // Dry path also goes to reverb
+    nVerb.connect(Z.masterGain);
+    return { nDel, nDry, nVerb };
+  },
+  // Build an instrument's effect chains ahead of its first note. A reverb
+  // is a convolver with an impulse the length of its tail, generated on
+  // the main thread the first time it is needed -- better before a song
+  // starts than in the middle of its first bar. No voice is made and
+  // nothing sounds.
+  prepare: (instrument) => {
+    if (!Z.ctx) Z.init();
+    Z.ensureFilterMod();
+    instrument.oscs.forEach((cnf) => Z.fxChain(cnf, []));
+  },
   // Render audio for given notes and layer
   // Returns voice ID if sustained mode, null otherwise
   // `when` is an AudioContext time to start at, for scheduling ahead of the
@@ -428,73 +510,9 @@ let Z = {
         nFilt.connect(nGain);
         nGain.connect(nPan);
         // Create delay effect if specified (with dry/wet mix)
-        let nDel, nDry, nVerb;
-        if (!cnf?.fx?.del) {
-          let nDelID = Z.id({ ...cnf, d: "0" });
-          fxKeys.push(nDelID);
-          nDel = Z.fxNodes[nDelID];
-          if (!nDel) {
-            nDel = Z.aC.createGain();
-            Z.fxNodes[nDelID] = nDel; // Store the same node we use
-          }
-          nPan.connect(nDel);
-        } else {
-          let dC = cnf.fx.del;
-          let dId = Z.id(dC);
-          fxKeys.push(dId);
-          nDel = Z.fxNodes[dId];
-          if (!nDel) {
-            nDel = Z.aC.createDelay();
-            nDel.delayTime.value = dC.time;
-            let dF = Z.aC.createGain();
-            dF.gain.value = dC.feedback;
-            nDel.connect(dF);
-            dF.connect(nDel);
-            Z.fxNodes[dId] = nDel;
-          }
-          // Create dry signal path with mix level
-          let dryId = Z.id({ ...dC, dry: 1 });
-          fxKeys.push(dryId);
-          nDry = Z.fxNodes[dryId];
-          if (!nDry) {
-            nDry = Z.aC.createGain();
-            nDry.gain.value = dC.mix ?? 1; // Default mix=1 (full dry signal)
-            Z.fxNodes[dryId] = nDry;
-          }
-          nPan.connect(nDel); // Wet path (delayed)
-          nPan.connect(nDry); // Dry path (immediate)
-        }
-        // Create reverb effect if specified
-        if (!cnf?.fx?.verb) {
-          let noId = Z.id({ ...cnf, r: "0" });
-          fxKeys.push(noId);
-          nVerb = Z.fxNodes[noId];
-          if (!nVerb) {
-            nVerb = Z.aC.createGain();
-            Z.fxNodes[noId] = nVerb; // Store the same node we use
-          }
-        } else {
-          let rC = cnf.fx.verb;
-          let rId = Z.id(rC);
-          fxKeys.push(rId);
-          nVerb = Z.fxNodes[rId];
-          if (!nVerb) {
-            nVerb = Z.aC.createConvolver();
-            let length = SR * rC.duration;
-            let imp = Z.aC.createBuffer(2, length, SR);
-            let impL = imp.getChannelData(0);
-            let impR = imp.getChannelData(1);
-            for (let i = 0; i < length; i++) {
-              impL[i] = impR[i] = Z.randSample() * Math.pow(1 - i / length, rC.decay);
-            }
-            nVerb.buffer = imp;
-            Z.fxNodes[rId] = nVerb; // Store the same node we use
-          }
-        }
-        // Connect Delay -> Reverb -> Output (via master gain)
-        nDel.connect(nVerb);
-        if (nDry) nDry.connect(nVerb); // Dry path also goes to reverb
-        nVerb.connect(Z.masterGain);
+        let { nDel, nDry, nVerb } = Z.fxChain(cnf, fxKeys);
+        nPan.connect(nDel);
+        if (nDry) nPan.connect(nDry);
         oscs.push(osc);
       });
       // Wire FM matrix connections between oscillators for this note
@@ -535,7 +553,7 @@ let Z = {
       // Generate voice ID and store for later noteOff
       let voiceId = `${Date.now()}_${Math.random()}`;
       Z.retainFx(fxKeys);
-      Z.activeVoices[voiceId] = { oscs, gains, allNodes, filters, fxKeys };
+      Z.activeVoices[voiceId] = { oscs, gains, allNodes, filters, fxKeys, start: now };
       return voiceId;
     }
     // A one-shot has no noteOff to hang the cleanup off, so it is timed from
@@ -567,6 +585,13 @@ let Z = {
     if (!voice) return;
     let now = Z.aC.currentTime;
     let at = when !== null ? Math.max(when, now) : now;
+    // Never at or before the note's own start. cancelAndHoldAtTime removes
+    // every event at or after its time, and the envelope's first event -- the
+    // value-0 the attack rises from -- sits exactly at the start; cancel
+    // there and the gain holds at its intrinsic 1, so a note released the
+    // instant it began came out as a full-volume burst the length of its
+    // release.
+    if (voice.start !== undefined) at = Math.max(at, voice.start + 0.005);
     let maxRelease = 0.015;
     // Apply release envelope to all gain nodes
     voice.gains.forEach(({ gain, env }) => {

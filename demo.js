@@ -1213,6 +1213,11 @@ const ZynDemo = {
     if (headerSeed) headerSeed.textContent = `#${seed}`;
     this.updateCodeSample(seed);
     if (this.channels[this.activeChannel]) this.syncActiveChannel();
+    // Embedded in another page (Tracklathe puts this editor in a tab), tell
+    // it which seed is showing, so it can offer to take it.
+    if (window.parent !== window) {
+      try { window.parent.postMessage({ type: "zyn-seed", seed: seed }, "*"); } catch (e) {}
+    }
   },
 
   updateCodeSample(seed) {
