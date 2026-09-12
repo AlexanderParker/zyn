@@ -300,15 +300,21 @@ let Z = {
           osc.frequency.value = oFreq;
         }
         noteOscNodes.push({ osc, freq: oFreq, waveform: cnf.waveform });
-        // Create gain node and apply ADSR envelope
+        // Create gain node and apply ADSR envelope. A per-note release scale
+        // is applied here rather than by editing the instrument, so the
+        // instrument config -- which keys the effect-node cache -- is the
+        // same for every note.
         let nGain = Z.aC.createGain();
+        let gEnv = cnf.adsrGain;
+        let rs = layer.releaseScale;
+        if (rs && rs !== 1) gEnv = { ...gEnv, R: [gEnv.R[0] * rs, gEnv.R[1]] };
         if (sustained) {
           // For sustained notes, just do attack to sustain, hold there
-          finalStopTime = Math.max(finalStopTime, Z.adsrSustain(nGain.gain, now, cnf.adsrGain, layer.gain * voiceGain));
+          finalStopTime = Math.max(finalStopTime, Z.adsrSustain(nGain.gain, now, gEnv, layer.gain * voiceGain));
         } else {
-          finalStopTime = Math.max(finalStopTime, Z.adsr(nGain.gain, now, cnf.adsrGain, layer.gain * voiceGain));
+          finalStopTime = Math.max(finalStopTime, Z.adsr(nGain.gain, now, gEnv, layer.gain * voiceGain));
         }
-        gains.push({ gain: nGain, env: cnf.adsrGain, max: layer.gain * voiceGain });
+        gains.push({ gain: nGain, env: gEnv, max: layer.gain * voiceGain });
         // Create and connect gain LFO if specified
         let gLFO = cnf.gLFO ? Z.aC.createOscillator() : null;
         if (gLFO) {
@@ -327,6 +333,10 @@ let Z = {
         }
         // Create filter and apply ADSR envelope
         let nFilt = Z.aC.createBiquadFilter();
+        // A per-note filter offset, in semitones. detune is multiplicative on
+        // the computed frequency, the same thing the envelope scaling would
+        // have been, and it leaves the instrument config untouched.
+        if (layer.cutoff) nFilt.detune.value = layer.cutoff * 100;
         nFilt.Q.value = cnf.filterQ || 0;
         // Live modulation rides on top of whatever the envelope schedules:
         // connected inputs SUM with an AudioParam's automation, and detune is
@@ -827,22 +837,29 @@ let Z = {
   },
   // Play a single note with a given instrument (one-shot, uses full ADSR).
   // `when` is an AudioContext time; omit it for "now".
-  play: (note, instrument, gain = 1, when = null) => {
+  // `opts.cutoff` shifts this note's filter in semitones and `opts.release`
+  // scales its release time; both apply to this note alone and leave the
+  // instrument as it was.
+  play: (note, instrument, gain = 1, when = null, opts = {}) => {
     let layer = {
       rootNote: 0,
       gain: 0.5 * gain,
       pan: 0,
       instrument: instrument,
+      cutoff: opts.cutoff || 0,
+      releaseScale: opts.release || 1,
     };
     Z.render(0, [note], layer, false, when);
   },
   // Start a sustained note (returns voiceId for noteOff)
-  noteOn: (note, instrument, gain = 1, when = null) => {
+  noteOn: (note, instrument, gain = 1, when = null, opts = {}) => {
     let layer = {
       rootNote: 0,
       gain: 0.5 * gain,
       pan: 0,
       instrument: instrument,
+      cutoff: opts.cutoff || 0,
+      releaseScale: opts.release || 1,
     };
     return Z.render(0, [note], layer, true, when);
   },
